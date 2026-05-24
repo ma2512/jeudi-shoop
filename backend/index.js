@@ -5,7 +5,7 @@ const { Pool } = require('pg');
 const { CognitoIdentityProviderClient, AdminAddUserToGroupCommand } = require('@aws-sdk/client-cognito-identity-provider');
 
 const app = express();
-const USER_POOL_ID = 'us-west-2_VdZApaQEQ';
+const USER_POOL_ID = 'us-west-2_SAazwJL7u';
 const cognitoClient = new CognitoIdentityProviderClient({ region: 'us-west-2' });
 
 app.use(cors({ origin: true, credentials: true }));
