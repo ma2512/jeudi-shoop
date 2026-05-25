@@ -35,6 +35,95 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+async function inicializarBaseDeDatos() {
+  try {
+    // 1. Crear tabla categorias
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS categorias (
+        id SERIAL PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        descripcion TEXT
+      )
+    `);
+
+    // 2. Crear tabla productos
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS productos (
+        id SERIAL PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        precio NUMERIC NOT NULL,
+        imagen TEXT,
+        descripcion TEXT,
+        fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        categoria_id INTEGER REFERENCES categorias(id) ON DELETE SET NULL
+      )
+    `);
+
+    // 3. Crear tabla pedidos (con columna estatus si no existe)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS pedidos (
+        id SERIAL PRIMARY KEY,
+        nombre_cliente VARCHAR(255) NOT NULL,
+        tipo_articulo VARCHAR(255) NOT NULL,
+        descripcion_extra TEXT,
+        fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Agregar columna estatus si no existe
+    try {
+      await pool.query("ALTER TABLE pedidos ADD COLUMN estatus VARCHAR(50) DEFAULT 'pendiente'");
+    } catch (err) {
+      // La columna ya podria existir
+    }
+
+    // 4. Crear tabla ventas
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ventas (
+        id SERIAL PRIMARY KEY,
+        pedido_id INTEGER REFERENCES pedidos(id) ON DELETE SET NULL,
+        cliente VARCHAR(255),
+        producto VARCHAR(255),
+        monto NUMERIC,
+        metodo_pago VARCHAR(50),
+        fecha TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        estatus_pago VARCHAR(50),
+        mp_procesado VARCHAR(10)
+      )
+    `);
+
+    // 5. Sembrar categorias por defecto si esta vacio
+    const catCheck = await pool.query('SELECT COUNT(*) FROM categorias');
+    if (parseInt(catCheck.rows[0].count) === 0) {
+      await pool.query(`
+        INSERT INTO categorias (id, nombre, descripcion) VALUES
+        (1, 'Bolsos', 'Bolsos hechos de lona y cuero vegano.'),
+        (2, 'Sombreros', 'Sombreros de algodon natural.'),
+        (3, 'Accesorios', 'Totes y pequeños accesorios.')
+      `);
+      // Reset serial sequence
+      await pool.query("SELECT setval('categorias_id_seq', (SELECT MAX(id) FROM categorias))");
+    }
+
+    // 6. Sembrar productos por defecto si esta vacio
+    const prodCheck = await pool.query('SELECT COUNT(*) FROM productos');
+    if (parseInt(prodCheck.rows[0].count) === 0) {
+      await pool.query(`
+        INSERT INTO productos (id, nombre, precio, imagen, descripcion, categoria_id) VALUES
+        (1, 'Bolso Lucia', 2400, 'producto1', 'Bolso artesanal de cuero vegano. Perfecto para el dia a dia.', 1),
+        (2, 'Tote Elena', 2900, 'producto2', 'Tote bag de lona resistente con bordados exclusivos.', 1),
+        (3, 'Sombrero Gabrielle', 1200, 'producto3', 'Sombrero tejido a mano con hilo de algodon natural.', 2)
+      `);
+      // Reset serial sequence
+      await pool.query("SELECT setval('productos_id_seq', (SELECT MAX(id) FROM productos))");
+    }
+
+    console.log('✅ Base de datos inicializada correctamente (tablas creadas y sembradas).');
+  } catch (err) {
+    console.error('❌ Error al inicializar base de datos:', err.message);
+  }
+}
+
 // ===============================
 // PEDIDOS — GET
 // ===============================
@@ -103,9 +192,9 @@ app.post('/crear-preferencia', async (req, res) => {
         }],
         payer: { name: nombre_cliente },
         back_urls: {
-          success: 'http://54.245.68.19',
-          failure: 'http://54.245.68.19',
-          pending: 'http://54.245.68.19'
+          success: 'http://44.245.212.173',
+          failure: 'http://44.245.212.173',
+          pending: 'http://44.245.212.173'
         },
         auto_return: 'approved',
         statement_descriptor: 'JEUDI SHOP'
@@ -233,6 +322,131 @@ app.patch('/admin/usuarios/:username/status', async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
-  console.log('Backend JEUDI SHOP corriendo en puerto 3000');
+// ===============================
+// CATEGORIAS — CRUD
+// ===============================
+app.get('/categorias', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM categorias ORDER BY id DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/categorias', async (req, res) => {
+  const { nombre, descripcion } = req.body;
+  try {
+    const result = await pool.query(
+      'INSERT INTO categorias (nombre, descripcion) VALUES ($1, $2) RETURNING *',
+      [nombre, descripcion]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/categorias/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre, descripcion } = req.body;
+  try {
+    const result = await pool.query(
+      'UPDATE categorias SET nombre = $1, descripcion = $2 WHERE id = $3 RETURNING *',
+      [nombre, descripcion, id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/categorias/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM categorias WHERE id = $1', [id]);
+    res.json({ message: 'Categoria eliminada' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===============================
+// PRODUCTOS — CRUD
+// ===============================
+app.get('/productos', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, nombre, precio, imagen, descripcion as desc, fecha_creacion as "fechaCreacion", categoria_id as "categoriaId" FROM productos ORDER BY id DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/productos', async (req, res) => {
+  const { nombre, precio, imagen, desc, categoriaId } = req.body;
+  try {
+    const result = await pool.query(
+      'INSERT INTO productos (nombre, precio, imagen, descripcion, categoria_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, nombre, precio, imagen, descripcion as "desc", fecha_creacion as "fechaCreacion", categoria_id as "categoriaId"',
+      [nombre, parseFloat(precio), imagen, desc, categoriaId ? parseInt(categoriaId) : null]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/productos/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre, precio, imagen, desc, categoriaId } = req.body;
+  try {
+    const result = await pool.query(
+      'UPDATE productos SET nombre = $1, precio = $2, imagen = $3, descripcion = $4, categoria_id = $5 WHERE id = $6 RETURNING id, nombre, precio, imagen, descripcion as "desc", fecha_creacion as "fechaCreacion", categoria_id as "categoriaId"',
+      [nombre, parseFloat(precio), imagen, desc, categoriaId ? parseInt(categoriaId) : null, id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/productos/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM productos WHERE id = $1', [id]);
+    res.json({ message: 'Producto eliminado' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===============================
+// VENTAS — CRUD
+// ===============================
+app.get('/ventas', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, pedido_id as "pedidoId", cliente, producto, monto, metodo_pago as "metodoPago", fecha, estatus_pago as "estatusPago", mp_procesado as "mpProcesado" FROM ventas ORDER BY id DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/ventas', async (req, res) => {
+  const { pedidoId, cliente, producto, monto, metodoPago, estatusPago, mpProcesado } = req.body;
+  try {
+    const result = await pool.query(
+      'INSERT INTO ventas (pedido_id, cliente, producto, monto, metodo_pago, estatus_pago, mp_procesado) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, pedido_id as "pedidoId", cliente, producto, monto, metodo_pago as "metodoPago", fecha, estatus_pago as "estatusPago", mp_procesado as "mpProcesado"',
+      [pedidoId ? parseInt(pedidoId) : null, cliente, producto, parseFloat(monto), metodoPago, estatusPago, mpProcesado]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+inicializarBaseDeDatos().then(() => {
+  app.listen(3000, () => {
+    console.log('Backend JEUDI SHOP corriendo en puerto 3000');
+  });
 });

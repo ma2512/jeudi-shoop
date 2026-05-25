@@ -28,6 +28,13 @@ Amplify.configure({
 
 const API_URL = 'http://44.245.212.173:3000';
 
+const resolverImagen = (imgString) => {
+  if (imgString === 'producto1') return producto1;
+  if (imgString === 'producto2') return producto2;
+  if (imgString === 'producto3') return producto3;
+  return imgString;
+};
+
 const temaJeudi = {
   name: 'tema-jeudi',
   tokens: {
@@ -296,7 +303,7 @@ function VistaInicio({ idioma, setPantalla, productos, setProductoDetalle }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '24px' }}>
           {destacados.map((p, i) => (
             <div key={i} className="producto-card" onClick={() => { setProductoDetalle(p); setPantalla('detalle'); }} style={{ cursor: 'pointer' }}>
-              <img src={p.imagen} style={{ width: '100%', height: '260px', objectFit: 'cover' }} alt={p.nombre}
+              <img src={resolverImagen(p.imagen)} style={{ width: '100%', height: '260px', objectFit: 'cover' }} alt={p.nombre}
                 onError={e => e.target.src='https://via.placeholder.com/260x260/fce4ec/f06292?text=J'} />
               <h3 style={{ fontFamily: "'Playfair Display', serif", marginTop: '14px', fontSize: '1rem' }}>{p.nombre}</h3>
               <p style={{ color: '#f06292', fontWeight: 500, marginTop: '6px' }}>${p.precio.toLocaleString()}</p>
@@ -311,7 +318,7 @@ function VistaInicio({ idioma, setPantalla, productos, setProductoDetalle }) {
 // ===============================
 // DETALLE DE PRODUCTO
 // ===============================
-function VistaDetalle({ producto, setPantalla, user, t }) {
+function VistaDetalle({ producto, setPantalla, user, t, setProductoPreseleccionado }) {
   if (!producto) { setPantalla('catalogo'); return null; }
   return (
     <div style={{ minHeight: '70vh' }}>
@@ -324,7 +331,7 @@ function VistaDetalle({ producto, setPantalla, user, t }) {
       </div>
       <div className="detalle-hero">
         <div>
-          <img src={producto.imagen} alt={producto.nombre}
+          <img src={resolverImagen(producto.imagen)} alt={producto.nombre}
             style={{ width: '100%', maxHeight: '580px', objectFit: 'cover', border: '1px solid #fce4ec' }}
             onError={e => e.target.src='https://via.placeholder.com/600x580/fce4ec/f06292?text=Jeudi'} />
         </div>
@@ -344,7 +351,14 @@ function VistaDetalle({ producto, setPantalla, user, t }) {
             </p>
           </div>
           <button
-            onClick={() => user ? setPantalla('pedido') : setPantalla('login')}
+            onClick={() => {
+              setProductoPreseleccionado(producto.nombre);
+              if (user) {
+                setPantalla('pedido');
+              } else {
+                setPantalla('login');
+              }
+            }}
             style={{ background: '#1a1a1a', color: '#fff', border: 'none', padding: '15px 40px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.15em', transition: 'background 0.25s', width: '100%' }}
             onMouseOver={e => e.target.style.background='#f06292'} onMouseOut={e => e.target.style.background='#1a1a1a'}>
             {t.pedirAhora}
@@ -367,6 +381,10 @@ function VistaPerfil({ idioma, grupos, historial, profilePhoto, setProfilePhoto,
   const [editName, setEditName] = useState(displayName || username);
   const [paginaActual, setPaginaActual] = useState(1);
   const POR_PAGINA = 5;
+
+  const esAdmin = grupos.some(g => ['admin', 'Admin'].includes(g));
+  const esEmpleado = grupos.some(g => ['empleado', 'Empleado'].includes(g));
+  const esStaff = esAdmin || esEmpleado;
 
   const getRolChipAndDesc = () => {
     if (grupos.some(g => ['admin', 'Admin'].includes(g))) {
@@ -479,8 +497,9 @@ function VistaPerfil({ idioma, grupos, historial, profilePhoto, setProfilePhoto,
       </div>
 
       {/* Historial de Pedidos Completo y Paginado */}
-      <div style={{ background: '#fff', border: '1px solid #fce4ec', padding: '36px', borderRadius: '4px' }}>
-        <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.2rem', color: '#1a1a1a', marginBottom: '24px' }}>Historial Completo de Pedidos</h3>
+      {!esStaff && (
+        <div style={{ background: '#fff', border: '1px solid #fce4ec', padding: '36px', borderRadius: '4px' }}>
+          <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.2rem', color: '#1a1a1a', marginBottom: '24px' }}>Historial Completo de Pedidos</h3>
         {historial.length === 0 ? (
           <p style={{ color: '#999', fontSize: '0.85rem' }}>No has realizado ningun pedido aun.</p>
         ) : (
@@ -520,6 +539,7 @@ function VistaPerfil({ idioma, grupos, historial, profilePhoto, setProfilePhoto,
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -527,10 +547,23 @@ function VistaPerfil({ idioma, grupos, historial, profilePhoto, setProfilePhoto,
 // ===============================
 // CONFIRMACION PEDIDO
 // ===============================
-function ConfirmacionPedido({ pedido, onCerrar, onPagarClick }) {
+function ConfirmacionPedido({ pedido, onCerrar, onPagarClick, pagosMap, setPagosMap }) {
   const handlePagar = () => {
     onPagarClick(pedido.id);
     window.open(pedido.init_point, '_blank');
+  };
+
+  const simularPago = (status) => {
+    const updated = { ...pagosMap, [pedido.id]: status };
+    setPagosMap(updated);
+    localStorage.setItem('jeudi_pagos_map', JSON.stringify(updated));
+    Swal.fire({
+      icon: 'success',
+      title: 'Pago Simulado',
+      text: `El pago ha sido registrado como: ${status.toUpperCase()}`,
+      confirmButtonColor: '#f06292'
+    });
+    onCerrar();
   };
 
   return (
@@ -559,12 +592,26 @@ function ConfirmacionPedido({ pedido, onCerrar, onPagarClick }) {
           <p style={{ fontSize: '0.82rem', color: '#856404' }}>Estatus inicial: <strong>Pendiente</strong> — Te avisaremos cuando este listo.</p>
         </div>
         {pedido.init_point && (
-          <button onClick={handlePagar}
-            style={{ display: 'block', background: '#009ee3', color: '#fff', border: 'none', padding: '13px 36px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.12em', width: '100%', textAlign: 'center', textDecoration: 'none', marginBottom: '12px', transition: 'background 0.25s', borderRadius: '2px' }}
-            onMouseOver={e => e.target.style.background='#007bb5'}
-            onMouseOut={e => e.target.style.background='#009ee3'}>
-            PAGAR CON MERCADO PAGO
-          </button>
+          <div style={{ marginTop: '16px', border: '1px dashed #f06292', padding: '16px', borderRadius: '4px', background: '#fafafa', marginBottom: '16px' }}>
+            <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#1a1a1a', marginBottom: '12px', fontFamily: "'Jost', sans-serif", letterSpacing: '0.05em' }}>SIMULACION DE PAGO</p>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <button onClick={() => simularPago('pagado')}
+                style={{ flex: 1, background: '#27ae60', color: '#fff', border: 'none', padding: '10px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.78rem', letterSpacing: '0.05em', borderRadius: '2px', transition: 'background 0.2s' }}
+                onMouseOver={e => e.target.style.background='#219150'} onMouseOut={e => e.target.style.background='#27ae60'}>
+                Simular Pago Exitoso
+              </button>
+              <button onClick={() => simularPago('rechazado')}
+                style={{ flex: 1, background: '#c0392b', color: '#fff', border: 'none', padding: '10px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.78rem', letterSpacing: '0.05em', borderRadius: '2px', transition: 'background 0.2s' }}
+                onMouseOver={e => e.target.style.background='#a53124'} onMouseOut={e => e.target.style.background='#c0392b'}>
+                Simular Pago Fallido
+              </button>
+            </div>
+            <button onClick={handlePagar}
+              style={{ display: 'block', background: '#009ee3', color: '#fff', border: 'none', padding: '10px 16px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.78rem', letterSpacing: '0.05em', width: '100%', textAlign: 'center', textDecoration: 'none', borderRadius: '2px', transition: 'background 0.2s' }}
+              onMouseOver={e => e.target.style.background='#007bb5'} onMouseOut={e => e.target.style.background='#009ee3'}>
+              Ir a Mercado Pago (Sandbox Real)
+            </button>
+          </div>
         )}
         <button onClick={onCerrar}
           style={{ background: '#1a1a1a', color: '#fff', border: 'none', padding: '13px 36px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.12em', width: '100%', transition: 'background 0.25s' }}
@@ -579,7 +626,7 @@ function ConfirmacionPedido({ pedido, onCerrar, onPagarClick }) {
 // ===============================
 // TIMELINE CARD
 // ===============================
-function TimelineCard({ pedido, t, pagosMap, setPagosMap }) {
+function TimelineCard({ pedido, t, pagosMap, setPagosMap, productos }) {
   const pasos = [
     { key: 'pendiente', label: t.pendiente, num: '1' },
     { key: 'terminado', label: t.terminado, num: '2' },
@@ -588,12 +635,39 @@ function TimelineCard({ pedido, t, pagosMap, setPagosMap }) {
   const indexActual = pasos.findIndex(p => p.key === (pedido.estatus || 'pendiente'));
 
   const estatusPago = pagosMap[pedido.id] || 'sin pagar';
+  const [generandoPago, setGenerandoPago] = useState(false);
 
   const simularPago = (status) => {
     const updated = { ...pagosMap, [pedido.id]: status };
     setPagosMap(updated);
     localStorage.setItem('jeudi_pagos_map', JSON.stringify(updated));
     Swal.fire({ icon: 'success', title: 'Listo', text: `Pago simulado como: ${status}`, confirmButtonColor: '#f06292' });
+  };
+
+  const pagarConMercadoPago = async () => {
+    setGenerandoPago(true);
+    try {
+      const precioProducto = productos.find(p =>
+        p.nombre.toLowerCase().trim() === pedido.tipo_articulo.toLowerCase().trim()
+      )?.precio || 100;
+
+      const { data } = await axios.post(`${API_URL}/crear-preferencia`, {
+        nombre_producto: pedido.tipo_articulo,
+        precio: precioProducto,
+        nombre_cliente: pedido.nombre_cliente
+      });
+
+      const updated = { ...pagosMap, [pedido.id]: 'en proceso de pago' };
+      setPagosMap(updated);
+      localStorage.setItem('jeudi_pagos_map', JSON.stringify(updated));
+
+      window.open(data.init_point, '_blank');
+    } catch (err) {
+      console.error(err);
+      Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo generar el enlace de Mercado Pago', confirmButtonColor: '#f06292' });
+    } finally {
+      setGenerandoPago(false);
+    }
   };
 
   return (
@@ -614,10 +688,27 @@ function TimelineCard({ pedido, t, pagosMap, setPagosMap }) {
               {estatusPago}
             </span>
 
-            {estatusPago === 'en proceso de pago' && (
-              <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                <button className="crud-btn crud-btn-edit" style={{ padding: '4px 10px', fontSize: '0.7rem' }} onClick={() => simularPago('pagado')}>Simular Pago Exitoso</button>
-                <button className="crud-btn crud-btn-delete" style={{ padding: '4px 10px', fontSize: '0.7rem' }} onClick={() => simularPago('rechazado')}>Simular Rechazo</button>
+            {estatusPago !== 'pagado' && (
+              <div style={{ marginTop: '10px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                  <button className="crud-btn" style={{ padding: '4px 10px', fontSize: '0.7rem', background: '#27ae60', color: '#fff', border: 'none', transition: 'background 0.2s' }}
+                    onMouseOver={e => e.target.style.background='#219150'} onMouseOut={e => e.target.style.background='#27ae60'}
+                    onClick={() => simularPago('pagado')}>
+                    Simular Pago Exitoso
+                  </button>
+                  <button className="crud-btn" style={{ padding: '4px 10px', fontSize: '0.7rem', background: '#c0392b', color: '#fff', border: 'none', transition: 'background 0.2s' }}
+                    onMouseOver={e => e.target.style.background='#a53124'} onMouseOut={e => e.target.style.background='#c0392b'}
+                    onClick={() => simularPago('rechazado')}>
+                    Simular Rechazo
+                  </button>
+                </div>
+                
+                <button className="crud-btn" disabled={generandoPago}
+                  style={{ padding: '6px 12px', fontSize: '0.72rem', background: '#009ee3', color: '#fff', border: 'none', cursor: generandoPago ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}
+                  onMouseOver={e => { if(!generandoPago) e.target.style.background='#007bb5'; }} onMouseOut={e => { if(!generandoPago) e.target.style.background='#009ee3'; }}
+                  onClick={pagarConMercadoPago}>
+                  {generandoPago ? 'Generando...' : 'Pagar con Mercado Pago'}
+                </button>
               </div>
             )}
           </div>
@@ -726,7 +817,7 @@ function ModalProducto({ producto, categorias, onClose, onSave }) {
 // ===============================
 // CRUD PRODUCTOS
 // ===============================
-function CRUDProductos({ productos, setProductos, categorias }) {
+function CRUDProductos({ productos, setProductos, categorias, cargarProductos }) {
   const [busqueda, setBusqueda] = useState('');
   const [ordenarPor, setOrdenarPor] = useState('fecha-desc');
   const [seleccionados, setSeleccionados] = useState([]);
@@ -773,25 +864,62 @@ function CRUDProductos({ productos, setProductos, categorias }) {
   const toggleSeleccion = (id) => setSeleccionados(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const toggleTodos = () => setSeleccionados(seleccionados.length === productosPagina.length ? [] : productosPagina.map(p => p.id));
 
-  const handleGuardar = (prod) => {
-    setProductos(prev => prod.id && prev.find(p => p.id === prod.id) ? prev.map(p => p.id === prod.id ? prod : p) : [prod, ...prev]);
-    Swal.fire({ icon: 'success', title: 'Listo', text: productoEditando ? 'Producto actualizado' : 'Producto agregado', confirmButtonColor: '#f06292', timer: 1800, showConfirmButton: false });
+  const handleGuardar = async (prod) => {
+    try {
+      if (prod.id && typeof prod.id === 'number' && prod.id < 1000000000) {
+        await axios.put(`${API_URL}/productos/${prod.id}`, prod);
+      } else if (productoEditando && productoEditando.id) {
+        await axios.put(`${API_URL}/productos/${productoEditando.id}`, prod);
+      } else {
+        await axios.post(`${API_URL}/productos`, prod);
+      }
+      Swal.fire({ icon: 'success', title: 'Listo', text: productoEditando ? 'Producto actualizado' : 'Producto agregado', confirmButtonColor: '#f06292', timer: 1800, showConfirmButton: false });
+      cargarProductos();
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo guardar el producto', confirmButtonColor: '#f06292' });
+    }
   };
 
-  const handleClonar = (prod) => {
-    const clon = { ...prod, id: Date.now(), nombre: `${prod.nombre} (copia)`, fechaCreacion: new Date().toISOString() };
-    setProductos(prev => [clon, ...prev]);
-    Swal.fire({ icon: 'success', title: 'Clonado', text: `"${prod.nombre}" fue clonado`, confirmButtonColor: '#f06292', timer: 1500, showConfirmButton: false });
+  const handleClonar = async (prod) => {
+    const clon = { ...prod, nombre: `${prod.nombre} (copia)` };
+    delete clon.id;
+    try {
+      await axios.post(`${API_URL}/productos`, clon);
+      Swal.fire({ icon: 'success', title: 'Clonado', text: `"${prod.nombre}" fue clonado`, confirmButtonColor: '#f06292', timer: 1500, showConfirmButton: false });
+      cargarProductos();
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo clonar el producto', confirmButtonColor: '#f06292' });
+    }
   };
 
   const handleEliminar = (id) => {
     Swal.fire({ title: 'Eliminar producto', text: 'Esta accion no se puede deshacer', icon: 'warning', showCancelButton: true, confirmButtonColor: '#c0392b', cancelButtonColor: '#888', confirmButtonText: 'Eliminar', cancelButtonText: 'Cancelar' })
-      .then(r => { if (r.isConfirmed) { setProductos(prev => prev.filter(p => p.id !== id)); setSeleccionados(prev => prev.filter(x => x !== id)); } });
+      .then(async (r) => {
+        if (r.isConfirmed) {
+          try {
+            await axios.delete(`${API_URL}/productos/${id}`);
+            setSeleccionados(prev => prev.filter(x => x !== id));
+            cargarProductos();
+          } catch (err) {
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo eliminar el producto', confirmButtonColor: '#f06292' });
+          }
+        }
+      });
   };
 
   const handleEliminarSeleccionados = () => {
     Swal.fire({ title: `Eliminar ${seleccionados.length} productos`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#c0392b', cancelButtonColor: '#888', confirmButtonText: 'Eliminar', cancelButtonText: 'Cancelar' })
-      .then(r => { if (r.isConfirmed) { setProductos(prev => prev.filter(p => !seleccionados.includes(p.id))); setSeleccionados([]); } });
+      .then(async (r) => {
+        if (r.isConfirmed) {
+          try {
+            await Promise.all(seleccionados.map(id => axios.delete(`${API_URL}/productos/${id}`)));
+            setSeleccionados([]);
+            cargarProductos();
+          } catch (err) {
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudieron eliminar los productos seleccionados', confirmButtonColor: '#f06292' });
+          }
+        }
+      });
   };
 
   // EXPORT CATALOG PDF
@@ -886,8 +1014,8 @@ function CRUDProductos({ productos, setProductos, categorias }) {
             {productosScroll.map(p => {
               const cat = categorias.find(c => c.id == p.categoriaId);
               return (
-                <div key={p.id} style={{ background: '#fff', border: '1px solid #fce4ec', padding: '12px', borderRadius: '4px', textAlign: 'center' }}>
-                  <img src={p.imagen} alt={p.nombre} style={{ width: '100%', height: '120px', objectFit: 'cover', marginBottom: '8px' }}
+                <div key={p.id} style={{ display: 'flex', flexDirection: 'column', padding: '10px', background: '#fafafa', border: '1px solid #fce4ec', borderRadius: '4px' }}>
+                  <img src={resolverImagen(p.imagen)} alt={p.nombre} style={{ width: '100%', height: '120px', objectFit: 'cover', marginBottom: '8px' }}
                     onError={e => e.target.src='https://via.placeholder.com/120/fce4ec/f06292?text=J'} />
                   <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: '0.95rem' }}>{p.nombre}</h4>
                   <p style={{ fontSize: '0.78rem', color: '#999', margin: '4px 0' }}>{cat ? cat.nombre : 'Sin Categoria'}</p>
@@ -929,7 +1057,7 @@ function CRUDProductos({ productos, setProductos, categorias }) {
                       return (
                         <tr key={p.id} className={`table-row${seleccionados.includes(p.id) ? ' table-row-selected' : ''}`}>
                           <td style={tdStyle}><input type="checkbox" className="checkbox-custom" checked={seleccionados.includes(p.id)} onChange={() => toggleSeleccion(p.id)} /></td>
-                          <td style={tdStyle}><img src={p.imagen} alt={p.nombre} style={{ width: '44px', height: '44px', objectFit: 'cover', border: '1px solid #fce4ec' }} onError={e => e.target.src='https://via.placeholder.com/44/fce4ec/f06292?text=J'} /></td>
+                          <td style={tdStyle}><img src={resolverImagen(p.imagen)} alt={p.nombre} style={{ width: '44px', height: '44px', objectFit: 'cover', border: '1px solid #fce4ec' }} onError={e => e.target.src='https://via.placeholder.com/44/fce4ec/f06292?text=J'} /></td>
                           <td style={{ ...tdStyle, fontWeight: 500 }}>{p.nombre}</td>
                           <td style={tdStyle}>{cat ? cat.nombre : '—'}</td>
                           <td style={{ ...tdStyle, color: '#f06292', fontWeight: 600 }}>${p.precio.toLocaleString()}</td>
@@ -969,27 +1097,37 @@ function CRUDProductos({ productos, setProductos, categorias }) {
 // ===============================
 // CRUD CATEGORIAS
 // ===============================
-function CRUDCategorias({ categorias, setCategorias, productos }) {
+function CRUDCategorias({ categorias, cargarCategorias, productos }) {
   const [form, setForm] = useState({ nombre: '', descripcion: '' });
   const [editando, setEditando] = useState(null);
   const [paginaActual, setPaginaActual] = useState(1);
   const POR_PAGINA = 5;
 
-  const totalPaginas = Math.ceil(categorias.length / POR_PAGINA);
-  const categoriasPagina = categorias.slice((paginaActual - 1) * POR_PAGINA, paginaActual * POR_PAGINA);
+  const catsArray = Array.isArray(categorias) ? categorias : [];
+  const totalPaginas = Math.ceil(catsArray.length / POR_PAGINA);
+  const categoriasPagina = catsArray.slice((paginaActual - 1) * POR_PAGINA, paginaActual * POR_PAGINA);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.nombre) return;
 
     if (editando) {
-      setCategorias(prev => prev.map(c => c.id === editando.id ? { ...c, nombre: form.nombre, descripcion: form.descripcion } : c));
-      Swal.fire({ icon: 'success', title: 'Listo', text: 'Categoria actualizada', confirmButtonColor: '#f06292', timer: 1500, showConfirmButton: false });
-      setEditando(null);
+      try {
+        await axios.put(`${API_URL}/categorias/${editando.id}`, { nombre: form.nombre, descripcion: form.descripcion });
+        Swal.fire({ icon: 'success', title: 'Listo', text: 'Categoria actualizada', confirmButtonColor: '#f06292', timer: 1500, showConfirmButton: false });
+        setEditando(null);
+        cargarCategorias();
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar la categoria', confirmButtonColor: '#f06292' });
+      }
     } else {
-      const nueva = { id: Date.now(), nombre: form.nombre, descripcion: form.descripcion };
-      setCategorias(prev => [nueva, ...prev]);
-      Swal.fire({ icon: 'success', title: 'Listo', text: 'Categoria agregada', confirmButtonColor: '#f06292', timer: 1500, showConfirmButton: false });
+      try {
+        await axios.post(`${API_URL}/categorias`, { nombre: form.nombre, descripcion: form.descripcion });
+        Swal.fire({ icon: 'success', title: 'Listo', text: 'Categoria agregada', confirmButtonColor: '#f06292', timer: 1500, showConfirmButton: false });
+        cargarCategorias();
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo agregar la categoria', confirmButtonColor: '#f06292' });
+      }
     }
     setForm({ nombre: '', descripcion: '' });
   };
@@ -1001,9 +1139,14 @@ function CRUDCategorias({ categorias, setCategorias, productos }) {
 
   const handleDelete = (id) => {
     Swal.fire({ title: 'Eliminar categoria', text: 'Esta accion no se puede deshacer', icon: 'warning', showCancelButton: true, confirmButtonColor: '#c0392b', cancelButtonColor: '#888', confirmButtonText: 'Eliminar' })
-      .then(r => {
+      .then(async (r) => {
         if (r.isConfirmed) {
-          setCategorias(prev => prev.filter(c => c.id !== id));
+          try {
+            await axios.delete(`${API_URL}/categorias/${id}`);
+            cargarCategorias();
+          } catch (err) {
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo eliminar la categoria', confirmButtonColor: '#f06292' });
+          }
         }
       });
   };
@@ -1053,7 +1196,7 @@ function CRUDCategorias({ categorias, setCategorias, productos }) {
                   <tr><td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#999' }}>No hay categorias creadas</td></tr>
                 ) : (
                   categoriasPagina.map(cat => {
-                    const numProds = productos.filter(p => p.categoriaId == cat.id).length;
+                    const numProds = (productos || []).filter(p => p.categoriaId == cat.id).length;
                     return (
                       <tr key={cat.id} className="table-row">
                         <td style={tdStyle}><span style={{ color: '#f06292' }}>#{cat.id}</span></td>
@@ -1397,7 +1540,7 @@ function GestorDocumentos({ documentos, setDocumentos }) {
 // ===============================
 // VISTA CATALOGO
 // ===============================
-function VistaCatalogo({ user, setPantalla, idioma, productos, setProductos, grupos, setProductoDetalle, categorias }) {
+function VistaCatalogo({ user, setPantalla, idioma, productos, setProductos, grupos, setProductoDetalle, categorias, setProductoPreseleccionado, cargarCategorias, cargarProductos, ventas }) {
   const t = textos[idioma];
   const esAdmin = grupos.some(g => ['admin', 'Admin'].includes(g));
   const [tabActiva, setTabActiva] = useState('catalogo');
@@ -1447,9 +1590,9 @@ function VistaCatalogo({ user, setPantalla, idioma, productos, setProductos, gru
         </div>
       )}
 
-      {esAdmin && tabActiva === 'gestionar' && <CRUDProductos productos={productos} setProductos={setProductos} categorias={categorias} />}
-      {esAdmin && tabActiva === 'categorias' && <CRUDCategorias categorias={categorias} setCategorias={setCategorias} productos={productos} />}
-      {esAdmin && tabActiva === 'ventas' && <CRUDVentas ventas={user ? JSON.parse(localStorage.getItem('jeudi_ventas') || '[]') : []} />}
+      {esAdmin && tabActiva === 'gestionar' && <CRUDProductos productos={productos} setProductos={setProductos} categorias={categorias} cargarProductos={cargarProductos} />}
+      {esAdmin && tabActiva === 'categorias' && <CRUDCategorias categorias={categorias} cargarCategorias={cargarCategorias} productos={productos} />}
+      {esAdmin && tabActiva === 'ventas' && <CRUDVentas ventas={ventas} />}
       {esAdmin && tabActiva === 'documentos' && <GestorDocumentos documentos={user ? JSON.parse(localStorage.getItem('jeudi_documentos') || '[]') : []} setDocumentos={(docs) => {
         if (typeof docs === 'function') {
           const prev = JSON.parse(localStorage.getItem('jeudi_documentos') || '[]');
@@ -1508,7 +1651,7 @@ function VistaCatalogo({ user, setPantalla, idioma, productos, setProductos, gru
             : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px' }}>
                 {productosVisibles.map((p) => (
                   <div key={p.id} className="producto-card">
-                    <img src={p.imagen} style={{ width: '100%', height: '380px', objectFit: 'cover', cursor: 'pointer' }} alt={p.nombre}
+                    <img src={resolverImagen(p.imagen)} style={{ width: '100%', height: '380px', objectFit: 'cover', cursor: 'pointer' }} alt={p.nombre}
                       onClick={() => { setProductoDetalle(p); setPantalla('detalle'); }}
                       onError={e => e.target.src='https://via.placeholder.com/300x380/fce4ec/f06292?text=Jeudi'} />
                     <div style={{ padding: '8px 0 0', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
@@ -1522,7 +1665,14 @@ function VistaCatalogo({ user, setPantalla, idioma, productos, setProductos, gru
                           onClick={() => { setProductoDetalle(p); setPantalla('detalle'); }}>
                           {t.verDetalle}
                         </button>
-                        <button className="btn-pedir" style={{ flex: 1, marginTop: 0 }} onClick={() => user ? setPantalla('pedido') : setPantalla('login')}>{t.pedirAhora}</button>
+                        <button className="btn-pedir" style={{ flex: 1, marginTop: 0 }} onClick={() => {
+                          setProductoPreseleccionado(p.nombre);
+                          if (user) {
+                            setPantalla('pedido');
+                          } else {
+                            setPantalla('login');
+                          }
+                        }}>{t.pedirAhora}</button>
                       </div>
                     </div>
                   </div>
@@ -1541,14 +1691,31 @@ function VistaCatalogo({ user, setPantalla, idioma, productos, setProductos, gru
 // ===============================
 // VISTA PEDIDOS
 // ===============================
-function VistaPedidos({ idioma, grupos, productos, onHistorialCargado, pagosMap, setPagosMap, addVentaAuto }) {
+function VistaPedidos({ idioma, grupos, productos, onHistorialCargado, pagosMap, setPagosMap, addVentaAuto, productoPreseleccionado, setProductoPreseleccionado }) {
   const t = textos[idioma];
   const { user } = useAuthenticator((context) => [context.user]);
+  const userLogin = user?.signInDetails?.loginId || user?.username || '';
   
   const [historial, setHistorial] = useState([]);
-  const [pedido, setPedido] = useState({ nombre_cliente: '', tipo_articulo: '', descripcion_extra: '' });
+  const [pedido, setPedido] = useState({
+    nombre_cliente: userLogin,
+    tipo_articulo: productoPreseleccionado || '',
+    descripcion_extra: ''
+  });
   const [cargando, setCargando] = useState(false);
   const [pedidoConfirmado, setPedidoConfirmado] = useState(null);
+
+  useEffect(() => {
+    if (userLogin) {
+      setPedido(prev => ({ ...prev, nombre_cliente: prev.nombre_cliente || userLogin }));
+    }
+  }, [userLogin]);
+
+  useEffect(() => {
+    if (productoPreseleccionado) {
+      setPedido(prev => ({ ...prev, tipo_articulo: productoPreseleccionado }));
+    }
+  }, [productoPreseleccionado]);
 
   // Filtros/Búsqueda/Paginación para Admin/Staff
   const [busqueda, setBusqueda] = useState('');
@@ -1596,7 +1763,8 @@ function VistaPedidos({ idioma, grupos, productos, onHistorialCargado, pagosMap,
 
       // 4. Confirmacion con id correcto
       setPedidoConfirmado({ ...pedido, id: dbPedido.id, init_point: data.init_point });
-      setPedido({ nombre_cliente: '', tipo_articulo: '', descripcion_extra: '' });
+      setPedido({ nombre_cliente: userLogin, tipo_articulo: '', descripcion_extra: '' });
+      setProductoPreseleccionado(null);
       setTimeout(() => cargarPedidos(), 800);
     } catch (err) {
       Swal.fire({ icon: 'error', title: t.error, text: t.noEnviar, confirmButtonColor: '#f06292' });
@@ -1730,7 +1898,7 @@ function VistaPedidos({ idioma, grupos, productos, onHistorialCargado, pagosMap,
 
   return (
     <div style={{ padding: '60px 8%' }}>
-      {pedidoConfirmado && <ConfirmacionPedido pedido={pedidoConfirmado} onCerrar={() => { setPedidoConfirmado(null); cargarPedidos(); }} onPagarClick={handlePagarClick} />}
+      {pedidoConfirmado && <ConfirmacionPedido pedido={pedidoConfirmado} onCerrar={() => { setPedidoConfirmado(null); cargarPedidos(); }} onPagarClick={handlePagarClick} pagosMap={pagosMap} setPagosMap={setPagosMap} />}
 
       <div style={{ padding: '28px 32px', marginBottom: '40px', borderRadius: '4px', background: esStaff ? '#1a1a1a' : '#fce4ec', color: esStaff ? '#fff' : '#1a1a1a', borderLeft: '5px solid #f06292' }}>
         <h2 style={{ fontFamily: "'Playfair Display', serif", marginBottom: '8px' }}>{t.panel}</h2>
@@ -1833,7 +2001,7 @@ function VistaPedidos({ idioma, grupos, productos, onHistorialCargado, pagosMap,
                   </tbody>
                 </table>
               </div>
-            : <div>{historial.map(p => <TimelineCard key={p.id} pedido={p} t={t} pagosMap={pagosMap} setPagosMap={setPagosMap} />)}</div>
+            : <div>{historial.map(p => <TimelineCard key={p.id} pedido={p} t={t} pagosMap={pagosMap} setPagosMap={setPagosMap} productos={productos} />)}</div>
         }
 
         {esStaff && totalPaginas > 1 && (
@@ -2063,27 +2231,12 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
   const { user, signOut } = useAuthenticator((context) => [context.user]);
   const [grupos, setGrupos] = useState([]);
   const [productoDetalle, setProductoDetalle] = useState(null);
+  const [productoPreseleccionado, setProductoPreseleccionado] = useState(null);
   const [historialGlobal, setHistorialGlobal] = useState([]);
   
-  const [productos, setProductos] = useState([
-    { id: 1, nombre: 'Bolso Lucia', precio: 2400, imagen: producto1, desc: 'Bolso artesanal de cuero vegano. Perfecto para el dia a dia.', fechaCreacion: '2025-01-10T10:00:00Z', categoriaId: '1' },
-    { id: 2, nombre: 'Tote Elena', precio: 2900, imagen: producto2, desc: 'Tote bag de lona resistente con bordados exclusivos.', fechaCreacion: '2025-02-15T10:00:00Z', categoriaId: '1' },
-    { id: 3, nombre: 'Sombrero Gabrielle', precio: 1200, imagen: producto3, desc: 'Sombrero tejido a mano con hilo de algodon natural.', fechaCreacion: '2025-03-20T10:00:00Z', categoriaId: '2' },
-  ]);
-
-  const [categorias, setCategorias] = useState(() => {
-    const saved = localStorage.getItem('jeudi_categorias');
-    return saved ? JSON.parse(saved) : [
-      { id: 1, nombre: 'Bolsos', descripcion: 'Bolsos hechos de lona y cuero vegano.' },
-      { id: 2, nombre: 'Sombreros', descripcion: 'Sombreros de algodon natural.' },
-      { id: 3, nombre: 'Accesorios', descripcion: 'Totes y pequeños accesorios.' },
-    ];
-  });
-
-  const [ventas, setVentas] = useState(() => {
-    const saved = localStorage.getItem('jeudi_ventas');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [productos, setProductos] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [ventas, setVentas] = useState([]);
 
   const [pagosMap, setPagosMap] = useState(() => {
     const saved = localStorage.getItem('jeudi_pagos_map');
@@ -2097,31 +2250,59 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
     return localStorage.getItem('jeudi_display_name') || '';
   });
 
-  useEffect(() => {
-    localStorage.setItem('jeudi_categorias', JSON.stringify(categorias));
-  }, [categorias]);
+  const cargarCategorias = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_URL}/categorias`);
+      setCategorias(res.data || []);
+    } catch (err) {
+      console.error('Error al cargar categorias:', err);
+    }
+  }, []);
+
+  const cargarProductos = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_URL}/productos`);
+      setProductos(res.data || []);
+    } catch (err) {
+      console.error('Error al cargar productos:', err);
+    }
+  }, []);
+
+  const cargarVentas = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_URL}/ventas`);
+      setVentas(res.data || []);
+    } catch (err) {
+      console.error('Error al cargar ventas:', err);
+    }
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem('jeudi_ventas', JSON.stringify(ventas));
-  }, [ventas]);
+    cargarCategorias();
+    cargarProductos();
+    cargarVentas();
+  }, [cargarCategorias, cargarProductos, cargarVentas]);
 
   // Handler auto-creacion de ventas al pasar a entregado
-  const addVentaAuto = (pedido, precio) => {
+  const addVentaAuto = async (pedido, precio) => {
     const esMP = pagosMap[pedido.id] ? 'Si' : 'No';
     const estStatus = pagosMap[pedido.id] || 'pagado';
     
     const nueva = {
-      id: Date.now(),
       pedidoId: pedido.id,
       cliente: pedido.nombre_cliente,
       producto: pedido.tipo_articulo,
       monto: precio,
       metodoPago: esMP === 'Si' ? 'Mercado Pago' : 'Efectivo',
-      fecha: new Date().toISOString(),
       estatusPago: estStatus,
       mpProcesado: esMP
     };
-    setVentas(prev => [nueva, ...prev]);
+    try {
+      await axios.post(`${API_URL}/ventas`, nueva);
+      cargarVentas();
+    } catch (err) {
+      console.error('Error al guardar venta automatica:', err);
+    }
   };
 
   useEffect(() => {
@@ -2129,7 +2310,15 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
     else setGrupos([]);
   }, [user]);
 
-  useEffect(() => { if (user && pantalla === 'login') setPantalla('inicio'); }, [user, pantalla, setPantalla]);
+  useEffect(() => {
+    if (user && pantalla === 'login') {
+      if (productoPreseleccionado) {
+        setPantalla('pedido');
+      } else {
+        setPantalla('inicio');
+      }
+    }
+  }, [user, pantalla, setPantalla, productoPreseleccionado]);
 
   const esAdmin = grupos.some(g => ['admin', 'Admin'].includes(g));
   const pedidosPendientes = esAdmin ? historialGlobal.filter(p => !p.estatus || p.estatus === 'pendiente').length : 0;
@@ -2140,9 +2329,9 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
       <Navbar user={user} signOut={signOut} pantalla={pantalla} setPantalla={setPantalla} idioma={idioma} setIdioma={setIdioma} grupos={grupos} pedidosPendientes={pedidosPendientes} />
       <main>
         {pantalla === 'inicio' && <VistaInicio idioma={idioma} setPantalla={setPantalla} productos={productos} setProductoDetalle={setProductoDetalle} />}
-        {pantalla === 'catalogo' && <VistaCatalogo user={user} setPantalla={setPantalla} idioma={idioma} productos={productos} setProductos={setProductos} grupos={grupos} setProductoDetalle={setProductoDetalle} categorias={categorias} />}
-        {pantalla === 'detalle' && <VistaDetalle producto={productoDetalle} setPantalla={setPantalla} user={user} t={textos[idioma]} />}
-        {pantalla === 'pedido' && user && <VistaPedidos idioma={idioma} grupos={grupos} productos={productos} onHistorialCargado={setHistorialGlobal} pagosMap={pagosMap} setPagosMap={setPagosMap} addVentaAuto={addVentaAuto} />}
+        {pantalla === 'catalogo' && <VistaCatalogo user={user} setPantalla={setPantalla} idioma={idioma} productos={productos} setProductos={setProductos} grupos={grupos} setProductoDetalle={setProductoDetalle} categorias={categorias} setProductoPreseleccionado={setProductoPreseleccionado} cargarCategorias={cargarCategorias} cargarProductos={cargarProductos} ventas={ventas} />}
+        {pantalla === 'detalle' && <VistaDetalle producto={productoDetalle} setPantalla={setPantalla} user={user} t={textos[idioma]} setProductoPreseleccionado={setProductoPreseleccionado} />}
+        {pantalla === 'pedido' && user && <VistaPedidos idioma={idioma} grupos={grupos} productos={productos} onHistorialCargado={setHistorialGlobal} pagosMap={pagosMap} setPagosMap={setPagosMap} addVentaAuto={addVentaAuto} productoPreseleccionado={productoPreseleccionado} setProductoPreseleccionado={setProductoPreseleccionado} />}
         {pantalla === 'perfil' && user && <VistaPerfil idioma={idioma} grupos={grupos} historial={historialGlobal} profilePhoto={profilePhoto} setProfilePhoto={setProfilePhoto} displayName={displayName} setDisplayName={setDisplayName} />}
         {pantalla === 'roles' && <VistaRoles idioma={idioma} grupos={grupos} />}
         {pantalla === 'login' && (
