@@ -2,11 +2,22 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
-const { CognitoIdentityProviderClient, AdminAddUserToGroupCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const { MercadoPagoConfig, Preference } = require('mercadopago');
+const {
+  CognitoIdentityProviderClient,
+  AdminAddUserToGroupCommand,
+  AdminRemoveUserFromGroupCommand,
+  AdminCreateUserCommand,
+  AdminSetUserPasswordCommand
+} = require('@aws-sdk/client-cognito-identity-provider');
 
 const app = express();
 const USER_POOL_ID = 'us-west-2_SAazwJL7u';
 const cognitoClient = new CognitoIdentityProviderClient({ region: 'us-west-2' });
+
+const mpClient = new MercadoPagoConfig({
+  accessToken: 'TEST-7918913625259572-052510-7c883ca418b8d4939ac170f9791cb692-1065937150'
+});
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
@@ -21,34 +32,28 @@ const pool = new Pool({
 });
 
 // ===============================
-// RUTA OBTENER PEDIDOS (EL CAMBIO CLAVE)
+// PEDIDOS — GET
 // ===============================
 app.get('/pedidos', async (req, res) => {
   try {
-    const { email } = req.query; 
+    const { email } = req.query;
     let result;
-
     if (email && email !== 'undefined') {
-      // Usamos ILIKE y trim() para que no importe si hay mayúsculas o espacios accidentales
-      const queryText = 'SELECT * FROM pedidos WHERE nombre_cliente ILIKE $1 ORDER BY id DESC';
-      result = await pool.query(queryText, [email.trim()]);
-      
-      console.log(`🔍 Filtrando pedidos para: ${email}`);
+      result = await pool.query(
+        'SELECT * FROM pedidos WHERE nombre_cliente ILIKE $1 ORDER BY id DESC',
+        [email.trim()]
+      );
     } else {
-      // Si no hay email (Admin), enviamos todo
       result = await pool.query('SELECT * FROM pedidos ORDER BY id DESC');
-      console.log('📋 Enviando todos los pedidos (Vista Admin)');
     }
-
     res.json(result.rows);
   } catch (err) {
-    console.error("❌ Error en GET /pedidos:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
 // ===============================
-// RESTO DE RUTAS (SIN CAMBIOS)
+// PEDIDOS — POST
 // ===============================
 app.post('/pedidos', async (req, res) => {
   const { nombre_cliente, tipo_articulo, descripcion_extra } = req.body;
@@ -58,33 +63,111 @@ app.post('/pedidos', async (req, res) => {
       [nombre_cliente.trim(), tipo_articulo, descripcion_extra]
     );
     res.status(201).json(result.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
+// ===============================
+// PEDIDOS — PATCH estatus
+// ===============================
 app.patch('/pedidos/:id/estatus', async (req, res) => {
   const { id } = req.params;
   const { nuevo_estatus } = req.body;
   try {
     await pool.query('UPDATE pedidos SET estatus = $1 WHERE id = $2', [nuevo_estatus, id]);
     res.json({ message: 'Estatus actualizado' });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/pedidos', async (req, res) => {
-  // Usamos .trim() para quitar espacios antes o después del nombre
-  const { nombre_cliente, tipo_articulo, descripcion_extra } = req.body;
+// ===============================
+// MERCADO PAGO — Crear preferencia
+// ===============================
+app.post('/crear-preferencia', async (req, res) => {
+  const { nombre_producto, precio, nombre_cliente } = req.body;
   try {
-    const result = await pool.query(
-      'INSERT INTO pedidos (nombre_cliente, tipo_articulo, descripcion_extra) VALUES ($1, $2, $3) RETURNING *',
-      [nombre_cliente.trim(), tipo_articulo, descripcion_extra]
-    );
-    console.log("✅ Pedido guardado para:", nombre_cliente.trim());
-    res.status(201).json(result.rows[0]);
+    const preference = new Preference(mpClient);
+    const result = await preference.create({
+      body: {
+        items: [{
+          title: nombre_producto,
+          quantity: 1,
+          currency_id: 'MXN',
+          unit_price: parseFloat(precio)
+        }],
+        payer: { name: nombre_cliente },
+        back_urls: {
+          success: 'http://54.245.68.19',
+          failure: 'http://54.245.68.19',
+          pending: 'http://54.245.68.19'
+        },
+        auto_return: 'approved',
+        statement_descriptor: 'JEUDI SHOP'
+      }
+    });
+    res.json({ init_point: result.init_point, id: result.id });
+  } catch (err) {
+    console.error('Error Mercado Pago:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===============================
+// ADMIN — Asignar rol
+// ===============================
+app.post('/admin/asignar-rol', async (req, res) => {
+  const { username, rol } = req.body;
+  try {
+    const groupsToRemove = ['Admin', 'admin', 'Empleado', 'empleado'];
+    for (const g of groupsToRemove) {
+      try {
+        await cognitoClient.send(new AdminRemoveUserFromGroupCommand({
+          UserPoolId: USER_POOL_ID, Username: username, GroupName: g
+        }));
+      } catch (err) {}
+    }
+    if (rol !== 'Cliente') {
+      await cognitoClient.send(new AdminAddUserToGroupCommand({
+        UserPoolId: USER_POOL_ID, Username: username, GroupName: rol
+      }));
+    }
+    res.json({ message: `Rol ${rol} asignado a ${username} correctamente` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===============================
+// ADMIN — Crear usuario
+// ===============================
+app.post('/admin/crear-usuario', async (req, res) => {
+  const { username, password, rol } = req.body;
+  try {
+    await cognitoClient.send(new AdminCreateUserCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: username,
+      UserAttributes: [
+        { Name: 'email', Value: username },
+        { Name: 'email_verified', Value: 'true' }
+      ],
+      MessageAction: 'SUPPRESS'
+    }));
+    await cognitoClient.send(new AdminSetUserPasswordCommand({
+      UserPoolId: USER_POOL_ID, Username: username, Password: password, Permanent: true
+    }));
+    if (rol !== 'Cliente') {
+      await cognitoClient.send(new AdminAddUserToGroupCommand({
+        UserPoolId: USER_POOL_ID, Username: username, GroupName: rol
+      }));
+    }
+    res.status(201).json({ message: `Usuario ${username} creado con exito y asignado al rol ${rol}.` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 app.listen(3000, () => {
-  console.log('🚀 Backend JEUDI SHOP corriendo en puerto 3000');
+  console.log('Backend JEUDI SHOP corriendo en puerto 3000');
 });
