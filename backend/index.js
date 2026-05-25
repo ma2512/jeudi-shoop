@@ -8,7 +8,11 @@ const {
   AdminAddUserToGroupCommand,
   AdminRemoveUserFromGroupCommand,
   AdminCreateUserCommand,
-  AdminSetUserPasswordCommand
+  AdminSetUserPasswordCommand,
+  ListUsersCommand,
+  AdminListGroupsForUserCommand,
+  AdminDisableUserCommand,
+  AdminEnableUserCommand
 } = require('@aws-sdk/client-cognito-identity-provider');
 
 const app = express();
@@ -164,6 +168,67 @@ app.post('/admin/crear-usuario', async (req, res) => {
     }
     res.status(201).json({ message: `Usuario ${username} creado con exito y asignado al rol ${rol}.` });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===============================
+// ADMIN — Listar usuarios de Cognito
+// ===============================
+app.get('/admin/usuarios', async (req, res) => {
+  try {
+    const listCommand = new ListUsersCommand({
+      UserPoolId: USER_POOL_ID,
+    });
+    const data = await cognitoClient.send(listCommand);
+
+    const usersWithRoles = await Promise.all((data.Users || []).map(async (user) => {
+      const groupsCommand = new AdminListGroupsForUserCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: user.Username,
+      });
+      const groupsData = await cognitoClient.send(groupsCommand).catch(() => ({ Groups: [] }));
+      const roles = (groupsData.Groups || []).map(g => g.GroupName);
+      
+      const emailAttr = (user.Attributes || []).find(a => a.Name === 'email');
+      return {
+        username: user.Username,
+        email: emailAttr ? emailAttr.Value : '—',
+        rol: roles.join(', ') || 'Cliente',
+        enabled: user.Enabled,
+        status: user.UserStatus,
+        created: user.UserCreateDate,
+      };
+    }));
+
+    res.json(usersWithRoles);
+  } catch (err) {
+    console.error("Error al obtener usuarios de Cognito:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===============================
+// ADMIN — Activar / Desactivar usuario
+// ===============================
+app.patch('/admin/usuarios/:username/status', async (req, res) => {
+  const { username } = req.params;
+  const { enable } = req.body;
+  try {
+    if (enable) {
+      await cognitoClient.send(new AdminEnableUserCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: username,
+      }));
+    } else {
+      await cognitoClient.send(new AdminDisableUserCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: username,
+      }));
+    }
+    res.json({ message: `Usuario ${username} ${enable ? 'activado' : 'desactivado'} con exito.` });
+  } catch (err) {
+    console.error("Error al cambiar estado de usuario:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
