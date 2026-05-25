@@ -26,7 +26,7 @@ Amplify.configure({
   }
 });
 
-const API_URL = 'http://54.245.68.19:3000';
+const API_URL = 'http://44.245.212.173:3000';
 
 const temaJeudi = {
   name: 'tema-jeudi',
