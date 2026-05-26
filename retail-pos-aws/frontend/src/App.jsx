@@ -2152,7 +2152,7 @@ function VistaRoles({ idioma, grupos }) {
       Swal.fire({ icon: 'success', title: t.exito, text: 'Rol asignado con éxito', confirmButtonColor: '#f06292' });
       setDatos({ username: '', rol: 'Cliente' });
       setTimeout(() => cargarUsuarios(), 800);
-    } catch (err) { Swal.fire({ icon: 'error', title: t.error, text: 'Error al asignar rol', confirmButtonColor: '#f06292' }); }
+    } catch (err) { Swal.fire({ icon: 'error', title: t.error, text: err.response?.data?.error || err.message || 'Error al asignar rol', confirmButtonColor: '#f06292' }); }
   };
 
   const crearUsuario = async (e) => {
