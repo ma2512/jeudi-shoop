@@ -1745,7 +1745,7 @@ function VistaPedidos({ idioma, grupos, productos, historial, cargarPedidos, pag
       if (estado === 'entregado') {
         const ped = historial.find(p => p.id === id);
         if (ped) {
-          const precio = productos.find(p => p.nombre.toLowerCase().trim() === ped.tipo_articulo.toLowerCase().trim())?.precio || 100;
+          const precio = productos.find(p => p.nombre && ped.tipo_articulo && p.nombre.toLowerCase().trim() === ped.tipo_articulo.toLowerCase().trim())?.precio || 100;
           addVentaAuto(ped, precio);
         }
       }
@@ -1795,8 +1795,8 @@ function VistaPedidos({ idioma, grupos, productos, historial, cargarPedidos, pag
     // Busqueda
     if (busqueda) {
       lista = lista.filter(p => 
-        p.nombre_cliente.toLowerCase().includes(busqueda.toLowerCase()) || 
-        p.tipo_articulo.toLowerCase().includes(busqueda.toLowerCase())
+        (p.nombre_cliente && p.nombre_cliente.toLowerCase().includes(busqueda.toLowerCase())) || 
+        (p.tipo_articulo && p.tipo_articulo.toLowerCase().includes(busqueda.toLowerCase()))
       );
     }
 
@@ -1823,7 +1823,7 @@ function VistaPedidos({ idioma, grupos, productos, historial, cargarPedidos, pag
   const pedidosPendientes = historial.filter(p => !p.estatus || p.estatus === 'pendiente').length;
   const pedidosEntregados = historial.filter(p => p.estatus === 'entregado').length;
   const totalVentas = historial.reduce((sum, order) => {
-    const match = productos.find(p => p.nombre.toLowerCase().trim() === order.tipo_articulo.toLowerCase().trim());
+    const match = productos.find(p => p.nombre && order.tipo_articulo && p.nombre.toLowerCase().trim() === order.tipo_articulo.toLowerCase().trim());
     return sum + (match ? parseFloat(match.precio) : 0);
   }, 0);
 
