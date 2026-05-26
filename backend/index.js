@@ -19,7 +19,7 @@ const app = express();
 const USER_POOL_ID = 'us-west-2_SAazwJL7u';
 const cognitoClient = new CognitoIdentityProviderClient({ region: 'us-west-2' });
 
-const mpClient = new MercadoPagoConfig({
+const client = new MercadoPagoConfig({
   accessToken: 'TEST-7918913625259572-052510-7c883ca418b8d4939ac170f9791cb692-1065937150'
 });
 
@@ -134,9 +134,9 @@ async function inicializarBaseDeDatos() {
       await pool.query("SELECT setval('productos_id_seq', (SELECT MAX(id) FROM productos))");
     }
 
-    console.log('✅ Base de datos inicializada correctamente (tablas creadas y sembradas).');
+    console.log('Base de datos inicializada correctamente (tablas creadas y sembradas).');
   } catch (err) {
-    console.error('❌ Error al inicializar base de datos:', err.message);
+    console.error('Error al inicializar base de datos:', err.message);
   }
 }
 
@@ -261,14 +261,14 @@ app.post('/perfil', async (req, res) => {
 app.post('/crear-preferencia', async (req, res) => {
   const { items, nombre_cliente, pedido_id } = req.body;
   try {
-    const preference = new Preference(mpClient);
+    const preference = new Preference(client);
     
-    // Mapear los items reales del carrito
+    // Mapear los items reales asegurando tipos correctos
     const itemsMP = items.map(item => ({
-      title: item.nombre,
-      quantity: parseInt(item.cantidad),
-      currency_id: 'MXN',
-      unit_price: parseFloat(item.precio)
+      title: item.title,
+      quantity: parseInt(item.quantity),
+      currency_id: item.currency_id || 'MXN',
+      unit_price: parseFloat(item.unit_price)
     }));
 
     const result = await preference.create({
@@ -276,9 +276,9 @@ app.post('/crear-preferencia', async (req, res) => {
         items: itemsMP,
         payer: { name: nombre_cliente },
         back_urls: {
-          success: `http://44.245.212.173?pedido_id=${pedido_id}`,
-          failure: `http://44.245.212.173?pedido_id=${pedido_id}`,
-          pending: `http://44.245.212.173?pedido_id=${pedido_id}`
+          success: 'http://44.245.212.173/?status=approved',
+          failure: 'http://44.245.212.173/?status=rejected',
+          pending: 'http://44.245.212.173/?status=pending'
         },
         auto_return: 'approved',
         statement_descriptor: 'JEUDI SHOP'
@@ -286,8 +286,30 @@ app.post('/crear-preferencia', async (req, res) => {
     });
     res.json({ init_point: result.init_point, id: result.id });
   } catch (err) {
-    console.error('Error Mercado Pago:', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('Error completo en crear-preferencia:', err);
+    res.status(500).json({ error: err.message, detail: err });
+  }
+});
+
+// ===============================
+// MERCADO PAGO — Ruta de test
+// ===============================
+app.get('/test-mp', async (req, res) => {
+  try {
+    const preference = new Preference(client);
+    const result = await preference.create({
+      body: {
+        items: [{ title: 'Test', quantity: 1, unit_price: 100, currency_id: 'MXN' }],
+        back_urls: { 
+          success: 'http://44.245.212.173', 
+          failure: 'http://44.245.212.173', 
+          pending: 'http://44.245.212.173' 
+        }
+      }
+    });
+    res.json({ ok: true, init_point: result.init_point });
+  } catch (err) {
+    res.json({ ok: false, error: err.message, detail: err });
   }
 });
 

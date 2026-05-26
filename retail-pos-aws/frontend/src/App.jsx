@@ -676,23 +676,29 @@ function TimelineCard({ pedido, t, pagosMap, setPagosMap, productos }) {
   const pagarConMercadoPago = async () => {
     setGenerandoPago(true);
     try {
-      const precioProducto = productos.find(p =>
-        p.nombre.toLowerCase().trim() === pedido.tipo_articulo.toLowerCase().trim()
-      )?.precio || 100;
+      const match = productos.find(p =>
+        p.nombre && (
+          p.nombre.toLowerCase().trim() === pedido.tipo_articulo.toLowerCase().trim() ||
+          pedido.tipo_articulo.toLowerCase().includes(p.nombre.toLowerCase().trim()) ||
+          p.nombre.toLowerCase().trim().includes(pedido.tipo_articulo.toLowerCase().trim())
+        )
+      );
+      const precioProducto = match ? parseFloat(match.precio) : 100;
 
       const { data } = await axios.post(`${API_URL}/crear-preferencia`, {
         items: [{
-          nombre: pedido.tipo_articulo,
-          cantidad: 1,
-          precio: precioProducto
+          title: pedido.tipo_articulo,
+          quantity: 1,
+          unit_price: precioProducto,
+          currency_id: 'MXN'
         }],
-        nombre_cliente: pedido.nombre_cliente,
-        pedido_id: pedido.id
+        nombre_cliente: pedido.nombre_cliente
       });
 
       const updated = { ...pagosMap, [pedido.id]: 'pendiente_pago' };
       setPagosMap(updated);
       localStorage.setItem('jeudi_pagos_map', JSON.stringify(updated));
+      localStorage.setItem('jeudi_last_pedido_id', pedido.id);
 
       window.location.href = data.init_point;
     } catch (err) {
@@ -2490,20 +2496,20 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
   // Manejar el retorno (redirect back) de Mercado Pago Sandbox
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
-    const pedidoId = queryParams.get('pedido_id');
     const status = queryParams.get('status') || queryParams.get('collection_status');
 
-    if (pedidoId) {
+    if (status) {
+      const pedidoId = localStorage.getItem('jeudi_last_pedido_id');
       const procesarRetornoPago = async () => {
         let nuevoEstatusPago = 'pendiente_pago';
         let icon = 'info';
         let title = 'Pago en Proceso';
-        let text = 'Tu pago está siendo procesado por Mercado Pago.';
+        let text = 'Tu pago esta siendo procesado por Mercado Pago.';
 
         if (status === 'approved') {
           nuevoEstatusPago = 'pagado';
           icon = 'success';
-          title = '¡Compra Exitosa!';
+          title = 'Compra Exitosa';
           text = 'Tu pago ha sido aprobado. Muchas gracias por tu compra.';
         } else if (status === 'rejected') {
           nuevoEstatusPago = 'rechazado';
@@ -2513,9 +2519,11 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
         }
 
         try {
-          await axios.patch(`${API_URL}/pedidos/${pedidoId}/estatus-pago`, {
-            estatus_pago: nuevoEstatusPago
-          });
+          if (pedidoId) {
+            await axios.patch(`${API_URL}/pedidos/${pedidoId}/estatus-pago`, {
+              estatus_pago: nuevoEstatusPago
+            });
+          }
 
           if (status === 'approved') {
             vaciarCarrito();
@@ -2533,6 +2541,7 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
         } catch (err) {
           console.error('Error al procesar el retorno del pago:', err);
         } finally {
+          localStorage.removeItem('jeudi_last_pedido_id');
           window.history.replaceState({}, document.title, window.location.pathname);
         }
       };
@@ -2717,9 +2726,10 @@ function VistaCheckout({ user, userEmail, displayName, carrito, vaciarCarrito, p
       // 2. Crear Preferencia Mercado Pago
       const { data } = await axios.post(`${API_URL}/crear-preferencia`, {
         items: items.map(item => ({
-          nombre: item.nombre,
-          cantidad: item.cantidad,
-          precio: item.precio
+          title: item.nombre,
+          quantity: parseInt(item.cantidad),
+          unit_price: parseFloat(item.precio),
+          currency_id: 'MXN'
         })),
         nombre_cliente: form.nombre,
         pedido_id: dbPedido.id
@@ -2729,6 +2739,7 @@ function VistaCheckout({ user, userEmail, displayName, carrito, vaciarCarrito, p
       const updated = { ...pagosMap, [dbPedido.id]: 'pendiente_pago' };
       setPagosMap(updated);
       localStorage.setItem('jeudi_pagos_map', JSON.stringify(updated));
+      localStorage.setItem('jeudi_last_pedido_id', dbPedido.id);
 
       // Redirigir a Mercado Pago Sandbox Real
       window.location.href = data.init_point;
