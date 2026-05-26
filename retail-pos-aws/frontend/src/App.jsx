@@ -95,6 +95,9 @@ const textos = {
 const globalStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Jost:wght@300;400;500&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; margin: 0; }
+  #root { display: flex; flex-direction: column; min-height: 100vh; }
+  main { flex: 1; }
   body { font-family: 'Jost', sans-serif; }
   .nav-link { background: none; border: none; cursor: pointer; font-weight: 500; font-family: 'Jost', sans-serif; font-size: 0.82rem; letter-spacing: 0.08em; padding: 4px 0; transition: color 0.2s; }
   .nav-link:hover { color: #f06292 !important; }
@@ -195,12 +198,13 @@ const globalStyles = `
 function Navbar({ user, signOut, pantalla, setPantalla, idioma, setIdioma, grupos, pedidosPendientes, carrito }) {
   const t = textos[idioma];
   const esAdmin = grupos.some(g => ['admin', 'Admin'].includes(g));
+  const esStaff = grupos.some(g => ['admin', 'Admin', 'empleado', 'Empleado'].includes(g));
   const getLinkStyle = (p) => ({ color: pantalla === p ? '#f06292' : '#1a1a1a', borderBottom: pantalla === p ? '2px solid #f06292' : '2px solid transparent' });
 
   return (
     <nav style={{ background: '#fff', borderBottom: '1px solid #fce4ec', position: 'sticky', top: 0, zIndex: 1000 }}>
       <div style={{ background: '#1a1a1a', color: '#fce4ec', display: 'flex', justifyContent: 'space-between', padding: '5px 8%', fontSize: '0.7rem', letterSpacing: '0.05em' }}>
-        <span>TEL: 4531257355</span><span>INSTAGRAM: @jeudi_shoop</span>
+        <span>TEL: 4531257355</span><span>INSTAGRAM: <a href="https://www.instagram.com/jeudi_shoop" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>@jeudi_shoop</a></span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 8%', background: '#fce4ec' }}>
         <div onClick={() => setPantalla('inicio')} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
@@ -222,21 +226,23 @@ function Navbar({ user, signOut, pantalla, setPantalla, idioma, setIdioma, grupo
           {user && <button className="nav-link" style={getLinkStyle('perfil')} onClick={() => setPantalla('perfil')}>{t.perfil}</button>}
           
           {/* Carrito de compras */}
-          <div className="nav-badge-wrap" style={{ marginRight: '8px' }}>
-            <button className="nav-link" onClick={() => setPantalla('carrito')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', display: 'flex', alignItems: 'center' }}>
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke={pantalla === 'carrito' ? '#f06292' : '#1a1a1a'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', transition: 'stroke 0.2s' }}>
-                <circle cx="9" cy="21" r="1"></circle>
-                <circle cx="20" cy="21" r="1"></circle>
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-              </svg>
-            </button>
-            {carrito && carrito.reduce((sum, item) => sum + item.cantidad, 0) > 0 && (
-              <span className="nav-badge" style={{ background: '#f06292', color: '#fff' }}>
-                {carrito.reduce((sum, item) => sum + item.cantidad, 0)}
-              </span>
-            )}
-          </div>
+          {!esStaff && (
+            <div className="nav-badge-wrap" style={{ marginRight: '8px' }}>
+              <button className="nav-link" onClick={() => setPantalla('carrito')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', display: 'flex', alignItems: 'center' }}>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke={pantalla === 'carrito' ? '#f06292' : '#1a1a1a'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', transition: 'stroke 0.2s' }}>
+                  <circle cx="9" cy="21" r="1"></circle>
+                  <circle cx="20" cy="21" r="1"></circle>
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+              </button>
+              {carrito && carrito.reduce((sum, item) => sum + item.cantidad, 0) > 0 && (
+                <span className="nav-badge" style={{ background: '#f06292', color: '#fff' }}>
+                  {carrito.reduce((sum, item) => sum + item.cantidad, 0)}
+                </span>
+              )}
+            </div>
+          )}
 
           <button onClick={() => setIdioma(idioma === 'es' ? 'en' : 'es')}
             style={{ background: '#fff', border: '1px solid #f8bbd0', padding: '5px 10px', cursor: 'pointer', fontSize: '0.75rem', fontFamily: "'Jost', sans-serif" }}>
@@ -405,6 +411,10 @@ function VistaPerfil({ idioma, grupos, profilePhoto, setProfilePhoto, displayNam
 
   const [editName, setEditName] = useState(displayName || username);
 
+  useEffect(() => {
+    setEditName(displayName || username);
+  }, [displayName, username]);
+
   const esAdmin = grupos.some(g => ['admin', 'Admin'].includes(g));
   const esEmpleado = grupos.some(g => ['empleado', 'Empleado'].includes(g));
   const esStaff = esAdmin || esEmpleado;
@@ -448,19 +458,37 @@ function VistaPerfil({ idioma, grupos, profilePhoto, setProfilePhoto, displayNam
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const base64Data = reader.result;
       setProfilePhoto(base64Data);
-      localStorage.setItem('jeudi_profile_photo', base64Data);
-      Swal.fire({ icon: 'success', title: 'Listo', text: 'Foto de perfil actualizada', confirmButtonColor: '#f06292', timer: 1500, showConfirmButton: false });
+      try {
+        await axios.post(`${API_URL}/perfil`, {
+          username,
+          nombre_display: editName,
+          foto_base64: base64Data
+        });
+        Swal.fire({ icon: 'success', title: 'Listo', text: 'Foto de perfil actualizada', confirmButtonColor: '#f06292', timer: 1500, showConfirmButton: false });
+      } catch (err) {
+        console.error(err);
+        Swal.fire({ icon: 'error', title: t.error, text: 'Error al guardar la foto de perfil en la base de datos', confirmButtonColor: '#f06292' });
+      }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSaveName = () => {
+  const handleSaveName = async () => {
     setDisplayName(editName);
-    localStorage.setItem('jeudi_display_name', editName);
-    Swal.fire({ icon: 'success', title: 'Listo', text: 'Nombre actualizado', confirmButtonColor: '#f06292', timer: 1500, showConfirmButton: false });
+    try {
+      await axios.post(`${API_URL}/perfil`, {
+        username,
+        nombre_display: editName,
+        foto_base64: profilePhoto
+      });
+      Swal.fire({ icon: 'success', title: 'Listo', text: 'Nombre de display actualizado', confirmButtonColor: '#f06292', timer: 1500, showConfirmButton: false });
+    } catch (err) {
+      console.error(err);
+      Swal.fire({ icon: 'error', title: t.error, text: 'Error al guardar el nombre en la base de datos', confirmButtonColor: '#f06292' });
+    }
   };
 
   return (
@@ -608,15 +636,8 @@ function TimelineCard({ pedido, t, pagosMap, setPagosMap, productos }) {
   ];
   const indexActual = pasos.findIndex(p => p.key === (pedido.estatus || 'pendiente'));
 
-  const estatusPago = pagosMap[pedido.id] || 'sin pagar';
+  const estatusPago = pedido.estatus_pago || 'pendiente_pago';
   const [generandoPago, setGenerandoPago] = useState(false);
-
-  const simularPago = (status) => {
-    const updated = { ...pagosMap, [pedido.id]: status };
-    setPagosMap(updated);
-    localStorage.setItem('jeudi_pagos_map', JSON.stringify(updated));
-    Swal.fire({ icon: 'success', title: 'Listo', text: `Pago simulado como: ${status}`, confirmButtonColor: '#f06292' });
-  };
 
   const pagarConMercadoPago = async () => {
     setGenerandoPago(true);
@@ -626,16 +647,20 @@ function TimelineCard({ pedido, t, pagosMap, setPagosMap, productos }) {
       )?.precio || 100;
 
       const { data } = await axios.post(`${API_URL}/crear-preferencia`, {
-        nombre_producto: pedido.tipo_articulo,
-        precio: precioProducto,
-        nombre_cliente: pedido.nombre_cliente
+        items: [{
+          nombre: pedido.tipo_articulo,
+          cantidad: 1,
+          precio: precioProducto
+        }],
+        nombre_cliente: pedido.nombre_cliente,
+        pedido_id: pedido.id
       });
 
-      const updated = { ...pagosMap, [pedido.id]: 'en proceso de pago' };
+      const updated = { ...pagosMap, [pedido.id]: 'pendiente_pago' };
       setPagosMap(updated);
       localStorage.setItem('jeudi_pagos_map', JSON.stringify(updated));
 
-      window.open(data.init_point, '_blank');
+      window.location.href = data.init_point;
     } catch (err) {
       console.error(err);
       Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo generar el enlace de Mercado Pago', confirmButtonColor: '#f06292' });
@@ -664,19 +689,6 @@ function TimelineCard({ pedido, t, pagosMap, setPagosMap, productos }) {
 
             {estatusPago !== 'pagado' && (
               <div style={{ marginTop: '10px' }}>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                  <button className="crud-btn" style={{ padding: '4px 10px', fontSize: '0.7rem', background: '#27ae60', color: '#fff', border: 'none', transition: 'background 0.2s' }}
-                    onMouseOver={e => e.target.style.background='#219150'} onMouseOut={e => e.target.style.background='#27ae60'}
-                    onClick={() => simularPago('pagado')}>
-                    Simular Pago Exitoso
-                  </button>
-                  <button className="crud-btn" style={{ padding: '4px 10px', fontSize: '0.7rem', background: '#c0392b', color: '#fff', border: 'none', transition: 'background 0.2s' }}
-                    onMouseOver={e => e.target.style.background='#a53124'} onMouseOut={e => e.target.style.background='#c0392b'}
-                    onClick={() => simularPago('rechazado')}>
-                    Simular Rechazo
-                  </button>
-                </div>
-                
                 <button className="crud-btn" disabled={generandoPago}
                   style={{ padding: '6px 12px', fontSize: '0.72rem', background: '#009ee3', color: '#fff', border: 'none', cursor: generandoPago ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}
                   onMouseOver={e => { if(!generandoPago) e.target.style.background='#007bb5'; }} onMouseOut={e => { if(!generandoPago) e.target.style.background='#009ee3'; }}
@@ -1894,7 +1906,7 @@ function VistaPedidos({ idioma, grupos, productos, historial, cargarPedidos, pag
                   </thead>
                   <tbody>
                     {pedidosPagina.map((p) => {
-                      const estatusPago = pagosMap[p.id] || 'sin pagar';
+                      const estatusPago = p.estatus_pago || 'pendiente_pago';
                       return (
                         <tr key={p.id} className="table-row">
                           <td style={tdStyle}><span style={{ color: '#f06292', fontWeight: 600 }}>#{p.id}</span></td>
@@ -2237,9 +2249,9 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
     setCarrito(prev => prev.filter(item => item.id !== id));
   };
 
-  const vaciarCarrito = () => {
+  const vaciarCarrito = useCallback(() => {
     setCarrito([]);
-  };
+  }, []);
   
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
@@ -2250,12 +2262,8 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
     return saved ? JSON.parse(saved) : {};
   });
 
-  const [profilePhoto, setProfilePhoto] = useState(() => {
-    return localStorage.getItem('jeudi_profile_photo') || null;
-  });
-  const [displayName, setDisplayName] = useState(() => {
-    return localStorage.getItem('jeudi_display_name') || '';
-  });
+  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [displayName, setDisplayName] = useState('');
 
   const cargarCategorias = useCallback(async () => {
     try {
@@ -2363,6 +2371,81 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
 
   const esAdmin = grupos.some(g => ['admin', 'Admin'].includes(g));
   const pedidosPendientes = esAdmin ? historial.filter(p => !p.estatus || p.estatus === 'pendiente').length : 0;
+
+  // Cargar perfil del usuario desde base de datos PostgreSQL
+  useEffect(() => {
+    if (user) {
+      const fetchPerfil = async () => {
+        try {
+          const res = await axios.get(`${API_URL}/perfil/${user.username}`);
+          if (res.data) {
+            if (res.data.nombre_display) setDisplayName(res.data.nombre_display);
+            if (res.data.foto_base64) setProfilePhoto(res.data.foto_base64);
+          }
+        } catch (err) {
+          console.error("Error al cargar perfil desde DB:", err);
+        }
+      };
+      fetchPerfil();
+    } else {
+      setDisplayName('');
+      setProfilePhoto(null);
+    }
+  }, [user]);
+
+  // Manejar el retorno (redirect back) de Mercado Pago Sandbox
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const pedidoId = queryParams.get('pedido_id');
+    const status = queryParams.get('status') || queryParams.get('collection_status');
+
+    if (pedidoId) {
+      const procesarRetornoPago = async () => {
+        let nuevoEstatusPago = 'pendiente_pago';
+        let icon = 'info';
+        let title = 'Pago en Proceso';
+        let text = 'Tu pago está siendo procesado por Mercado Pago.';
+
+        if (status === 'approved') {
+          nuevoEstatusPago = 'pagado';
+          icon = 'success';
+          title = '¡Compra Exitosa!';
+          text = 'Tu pago ha sido aprobado. Muchas gracias por tu compra.';
+        } else if (status === 'rejected') {
+          nuevoEstatusPago = 'rechazado';
+          icon = 'error';
+          title = 'Pago Rechazado';
+          text = 'Lo sentimos, el pago ha sido rechazado. Por favor, intenta de nuevo.';
+        }
+
+        try {
+          await axios.patch(`${API_URL}/pedidos/${pedidoId}/estatus-pago`, {
+            estatus_pago: nuevoEstatusPago
+          });
+
+          if (status === 'approved') {
+            vaciarCarrito();
+            setProductoPreseleccionado(null);
+          }
+
+          Swal.fire({
+            icon,
+            title,
+            text,
+            confirmButtonColor: '#f06292'
+          });
+
+          cargarPedidos();
+        } catch (err) {
+          console.error('Error al procesar el retorno del pago:', err);
+        } finally {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      };
+
+      procesarRetornoPago();
+    }
+  }, [vaciarCarrito, cargarPedidos]);
 
   return (
     <>
@@ -2519,7 +2602,7 @@ function VistaCheckout({ user, userEmail, displayName, carrito, vaciarCarrito, p
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const procesarPedido = async (paymentStatus, useMP = false) => {
+  const procesarPedido = async () => {
     if (!form.nombre.trim() || !form.telefono.trim() || !form.direccion.trim()) {
       Swal.fire({ icon: 'warning', title: 'Campos incompletos', text: 'Por favor rellena el nombre, teléfono y dirección de envío.', confirmButtonColor: '#f06292' });
       return;
@@ -2537,52 +2620,28 @@ function VistaCheckout({ user, userEmail, displayName, carrito, vaciarCarrito, p
       });
       const dbPedido = resPost.data;
 
-      if (useMP) {
-        // 2. Crear Preferencia Mercado Pago
-        const { data } = await axios.post(`${API_URL}/crear-preferencia`, {
-          nombre_producto: nombresArticulos,
-          precio: total,
-          nombre_cliente: form.nombre
-        });
+      // 2. Crear Preferencia Mercado Pago
+      const { data } = await axios.post(`${API_URL}/crear-preferencia`, {
+        items: items.map(item => ({
+          nombre: item.nombre,
+          cantidad: item.cantidad,
+          precio: item.precio
+        })),
+        nombre_cliente: form.nombre,
+        pedido_id: dbPedido.id
+      });
 
-        // Guardar estatus
-        const updated = { ...pagosMap, [dbPedido.id]: 'en proceso de pago' };
-        setPagosMap(updated);
-        localStorage.setItem('jeudi_pagos_map', JSON.stringify(updated));
+      // Guardar estatus inicial
+      const updated = { ...pagosMap, [dbPedido.id]: 'pendiente_pago' };
+      setPagosMap(updated);
+      localStorage.setItem('jeudi_pagos_map', JSON.stringify(updated));
 
-        // Abrir pestaña MP
-        window.open(data.init_point, '_blank');
-        Swal.fire({ icon: 'info', title: 'Pago Pendiente', text: 'Se ha abierto la pestaña de pago de Mercado Pago.', confirmButtonColor: '#f06292' });
-      } else {
-        // Guardar estatus simulado
-        const updated = { ...pagosMap, [dbPedido.id]: paymentStatus };
-        setPagosMap(updated);
-        localStorage.setItem('jeudi_pagos_map', JSON.stringify(updated));
-
-        // Registrar venta automática si es exitoso
-        if (paymentStatus === 'pagado') {
-          await addVentaAuto(dbPedido, total);
-        }
-
-        Swal.fire({ icon: 'success', title: 'Pedido Guardado', text: `Tu pedido ha sido registrado con pago: ${paymentStatus.toUpperCase()}`, confirmButtonColor: '#f06292' });
-      }
-
-      // Limpieza y redirección
-      if (!productoPreseleccionado) {
-        vaciarCarrito();
-      }
-      setProductoPreseleccionado(null);
-      
-      // Forzar carga de pedidos en el estado global
-      setTimeout(() => {
-        cargarPedidos();
-        setPantalla('pedido');
-      }, 1000);
+      // Redirigir a Mercado Pago Sandbox Real
+      window.location.href = data.init_point;
       
     } catch (err) {
       console.error(err);
       Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo procesar tu pedido. Inténtalo de nuevo.', confirmButtonColor: '#f06292' });
-    } finally {
       setCargando(false);
     }
   };
@@ -2660,7 +2719,7 @@ function VistaCheckout({ user, userEmail, displayName, carrito, vaciarCarrito, p
               </div>
             </div>
 
-            {/* Simulación y Pago */}
+            {/* Pago */}
             <div style={{ background: '#fff', border: '1px solid #fce4ec', padding: '30px', borderRadius: '4px' }}>
               <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.3rem', color: '#1a1a1a', margin: '0 0 16px' }}>Forma de Pago</h3>
               
@@ -2672,20 +2731,8 @@ function VistaCheckout({ user, userEmail, displayName, carrito, vaciarCarrito, p
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button onClick={() => procesarPedido('pagado', false)} disabled={cargando}
-                  style={{ background: '#27ae60', color: '#fff', border: 'none', padding: '12px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.82rem', letterSpacing: '0.08em', fontWeight: 600, transition: 'background 0.2s' }}
-                  onMouseOver={e => e.target.style.background='#219150'} onMouseOut={e => e.target.style.background='#27ae60'}>
-                  Simular Pago Exitoso
-                </button>
-
-                <button onClick={() => procesarPedido('rechazado', false)} disabled={cargando}
-                  style={{ background: '#c0392b', color: '#fff', border: 'none', padding: '12px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.82rem', letterSpacing: '0.08em', fontWeight: 600, transition: 'background 0.2s' }}
-                  onMouseOver={e => e.target.style.background='#a53124'} onMouseOut={e => e.target.style.background='#c0392b'}>
-                  Simular Pago Rechazado
-                </button>
-
-                <button onClick={() => procesarPedido('pendiente', true)} disabled={cargando}
-                  style={{ background: '#009ee3', color: '#fff', border: 'none', padding: '14px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.08em', fontWeight: 700, transition: 'background 0.2s', marginTop: '6px' }}
+                <button onClick={procesarPedido} disabled={cargando}
+                  style={{ background: '#009ee3', color: '#fff', border: 'none', padding: '14px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.08em', fontWeight: 700, transition: 'background 0.2s' }}
                   onMouseOver={e => e.target.style.background='#007bb5'} onMouseOut={e => e.target.style.background='#009ee3'}>
                   {cargando ? 'Procesando...' : 'Pagar con Mercado Pago'}
                 </button>

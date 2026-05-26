@@ -24,7 +24,7 @@ const mpClient = new MercadoPagoConfig({
 });
 
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Permitir imágenes en base64 de tamaño grande
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -59,7 +59,7 @@ async function inicializarBaseDeDatos() {
       )
     `);
 
-    // 3. Crear tabla pedidos (con columna estatus si no existe)
+    // 3. Crear tabla pedidos
     await pool.query(`
       CREATE TABLE IF NOT EXISTS pedidos (
         id SERIAL PRIMARY KEY,
@@ -72,12 +72,30 @@ async function inicializarBaseDeDatos() {
 
     // Agregar columna estatus si no existe
     try {
-      await pool.query("ALTER TABLE pedidos ADD COLUMN estatus VARCHAR(50) DEFAULT 'pendiente'");
+      await pool.query("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS estatus VARCHAR(50) DEFAULT 'pendiente'");
     } catch (err) {
-      // La columna ya podria existir
+      // Ignorar error si ya existe
     }
 
-    // 4. Crear tabla ventas
+    // Agregar columna estatus_pago si no existe
+    try {
+      await pool.query("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS estatus_pago VARCHAR(50) DEFAULT 'pendiente_pago'");
+    } catch (err) {
+      // Ignorar error si ya existe
+    }
+
+    // 4. Crear tabla usuarios_perfil
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS usuarios_perfil (
+        username VARCHAR(255) PRIMARY KEY,
+        nombre_display VARCHAR(255),
+        foto_base64 TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 5. Crear tabla ventas
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ventas (
         id SERIAL PRIMARY KEY,
@@ -92,7 +110,7 @@ async function inicializarBaseDeDatos() {
       )
     `);
 
-    // 5. Sembrar categorias por defecto si esta vacio
+    // 6. Sembrar categorias por defecto si esta vacio
     const catCheck = await pool.query('SELECT COUNT(*) FROM categorias');
     if (parseInt(catCheck.rows[0].count) === 0) {
       await pool.query(`
@@ -101,11 +119,10 @@ async function inicializarBaseDeDatos() {
         (2, 'Sombreros', 'Sombreros de algodon natural.'),
         (3, 'Accesorios', 'Totes y pequeños accesorios.')
       `);
-      // Reset serial sequence
       await pool.query("SELECT setval('categorias_id_seq', (SELECT MAX(id) FROM categorias))");
     }
 
-    // 6. Sembrar productos por defecto si esta vacio
+    // 7. Sembrar productos por defecto si esta vacio
     const prodCheck = await pool.query('SELECT COUNT(*) FROM productos');
     if (parseInt(prodCheck.rows[0].count) === 0) {
       await pool.query(`
@@ -114,7 +131,6 @@ async function inicializarBaseDeDatos() {
         (2, 'Tote Elena', 2900, 'producto2', 'Tote bag de lona resistente con bordados exclusivos.', 1),
         (3, 'Sombrero Gabrielle', 1200, 'producto3', 'Sombrero tejido a mano con hilo de algodon natural.', 2)
       `);
-      // Reset serial sequence
       await pool.query("SELECT setval('productos_id_seq', (SELECT MAX(id) FROM productos))");
     }
 
@@ -152,7 +168,7 @@ app.post('/pedidos', async (req, res) => {
   const { nombre_cliente, tipo_articulo, descripcion_extra } = req.body;
   try {
     const result = await pool.query(
-      'INSERT INTO pedidos (nombre_cliente, tipo_articulo, descripcion_extra) VALUES ($1, $2, $3) RETURNING *',
+      "INSERT INTO pedidos (nombre_cliente, tipo_articulo, descripcion_extra, estatus, estatus_pago) VALUES ($1, $2, $3, 'pendiente', 'pendiente_pago') RETURNING *",
       [nombre_cliente.trim(), tipo_articulo, descripcion_extra]
     );
     res.status(201).json(result.rows[0]);
@@ -176,25 +192,80 @@ app.patch('/pedidos/:id/estatus', async (req, res) => {
 });
 
 // ===============================
+// PEDIDOS — PATCH estatus-pago
+// ===============================
+app.patch('/pedidos/:id/estatus-pago', async (req, res) => {
+  const { id } = req.params;
+  const { estatus_pago } = req.body;
+  try {
+    await pool.query('UPDATE pedidos SET estatus_pago = $1 WHERE id = $2', [estatus_pago, id]);
+    res.json({ message: 'Estatus de pago actualizado con éxito' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===============================
+// PERFIL — GET
+// ===============================
+app.get('/perfil/:username', async (req, res) => {
+  const { username } = req.params;
+  try {
+    const result = await pool.query('SELECT nombre_display, foto_base64 FROM usuarios_perfil WHERE username = $1', [username]);
+    if (result.rows.length === 0) {
+      return res.json({ nombre_display: null, foto_base64: null });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===============================
+// PERFIL — POST
+// ===============================
+app.post('/perfil', async (req, res) => {
+  const { username, nombre_display, foto_base64 } = req.body;
+  try {
+    const result = await pool.query(`
+      INSERT INTO usuarios_perfil (username, nombre_display, foto_base64, updated_at)
+      VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+      ON CONFLICT (username) DO UPDATE
+      SET nombre_display = EXCLUDED.nombre_display,
+          foto_base64 = EXCLUDED.foto_base64,
+          updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [username, nombre_display, foto_base64]);
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===============================
 // MERCADO PAGO — Crear preferencia
 // ===============================
 app.post('/crear-preferencia', async (req, res) => {
-  const { nombre_producto, precio, nombre_cliente } = req.body;
+  const { items, nombre_cliente, pedido_id } = req.body;
   try {
     const preference = new Preference(mpClient);
+    
+    // Mapear los items reales del carrito
+    const itemsMP = items.map(item => ({
+      title: item.nombre,
+      quantity: parseInt(item.cantidad),
+      currency_id: 'MXN',
+      unit_price: parseFloat(item.precio)
+    }));
+
     const result = await preference.create({
       body: {
-        items: [{
-          title: nombre_producto,
-          quantity: 1,
-          currency_id: 'MXN',
-          unit_price: parseFloat(precio)
-        }],
+        items: itemsMP,
         payer: { name: nombre_cliente },
         back_urls: {
-          success: 'http://44.245.212.173',
-          failure: 'http://44.245.212.173',
-          pending: 'http://44.245.212.173'
+          success: `http://44.245.212.173?pedido_id=${pedido_id}`,
+          failure: `http://44.245.212.173?pedido_id=${pedido_id}`,
+          pending: `http://44.245.212.173?pedido_id=${pedido_id}`
         },
         auto_return: 'approved',
         statement_descriptor: 'JEUDI SHOP'
@@ -297,7 +368,6 @@ app.get('/admin/usuarios', async (req, res) => {
   }
 });
 
-// ===============================
 // ADMIN — Activar / Desactivar usuario
 // ===============================
 app.patch('/admin/usuarios/:username/status', async (req, res) => {
