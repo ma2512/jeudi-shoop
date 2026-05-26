@@ -95,9 +95,10 @@ const textos = {
 const globalStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Jost:wght@300;400;500&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; background-color: #fff; }
   #root { display: flex; flex-direction: column; min-height: 100vh; }
   main { flex: 1; }
-  body { font-family: 'Jost', sans-serif; margin: 0; padding: 0; }
+  body { font-family: 'Jost', sans-serif; }
   .nav-link { background: none; border: none; cursor: pointer; font-weight: 500; font-family: 'Jost', sans-serif; font-size: 0.82rem; letter-spacing: 0.08em; padding: 4px 0; transition: color 0.2s; }
   .nav-link:hover { color: #f06292 !important; }
   .producto-card { text-align: center; border: 1px solid #fce4ec; padding: 20px; background: #fff; transition: transform 0.3s, box-shadow 0.3s; display: flex; flex-direction: column; }
