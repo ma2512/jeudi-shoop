@@ -95,10 +95,9 @@ const textos = {
 const globalStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Jost:wght@300;400;500&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body, #root { height: 100%; margin: 0; }
   #root { display: flex; flex-direction: column; min-height: 100vh; }
   main { flex: 1; }
-  body { font-family: 'Jost', sans-serif; }
+  body { font-family: 'Jost', sans-serif; margin: 0; padding: 0; }
   .nav-link { background: none; border: none; cursor: pointer; font-weight: 500; font-family: 'Jost', sans-serif; font-size: 0.82rem; letter-spacing: 0.08em; padding: 4px 0; transition: color 0.2s; }
   .nav-link:hover { color: #f06292 !important; }
   .producto-card { text-align: center; border: 1px solid #fce4ec; padding: 20px; background: #fff; transition: transform 0.3s, box-shadow 0.3s; display: flex; flex-direction: column; }
@@ -267,7 +266,7 @@ function Navbar({ user, signOut, pantalla, setPantalla, idioma, setIdioma, grupo
 function Footer({ idioma, setPantalla }) {
   const t = textos[idioma];
   return (
-    <footer style={{ background: '#1a1a1a', color: '#fce4ec', padding: '50px 8% 30px', marginTop: '80px' }}>
+    <footer style={{ background: '#1a1a1a', color: '#fce4ec', padding: '50px 8% 30px', marginTop: 'auto' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '40px', marginBottom: '40px' }}>
         <div>
           <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', marginBottom: '12px' }}>JEUDI SHOP</h3>
@@ -626,6 +625,41 @@ function ConfirmacionPedido({ pedido, onCerrar, onPagarClick, pagosMap, setPagos
 }
 
 // ===============================
+// HELPER ESTATUS PAGO BADGE
+// ===============================
+const renderEstatusPagoBadge = (estatusPago) => {
+  let label = "Pendiente de pago";
+  let color = "#856404";
+  let bg = "#fff3cd";
+
+  if (estatusPago === 'pagado') {
+    label = "Pagado";
+    color = "#155724";
+    bg = "#d4edda";
+  } else if (estatusPago === 'rechazado') {
+    label = "Rechazado";
+    color = "#721c24";
+    bg = "#f8d7da";
+  }
+
+  return (
+    <span style={{
+      color,
+      backgroundColor: bg,
+      padding: '4px 12px',
+      borderRadius: '20px',
+      fontSize: '0.78rem',
+      fontWeight: 500,
+      letterSpacing: '0.05em',
+      display: 'inline-block',
+      textTransform: 'none'
+    }}>
+      {label}
+    </span>
+  );
+};
+
+// ===============================
 // TIMELINE CARD
 // ===============================
 function TimelineCard({ pedido, t, pagosMap, setPagosMap, productos }) {
@@ -678,14 +712,10 @@ function TimelineCard({ pedido, t, pagosMap, setPagosMap, productos }) {
           {pedido.descripcion_extra && <p style={{ fontSize: '0.82rem', color: '#888', marginTop: '4px' }}>{pedido.descripcion_extra}</p>}
 
           <div style={{ marginTop: '14px', fontSize: '0.85rem', color: '#333' }}>
-            <span>Estatus del Pago: </span>
-            <span style={{
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              color: estatusPago === 'pagado' ? '#27ae60' : estatusPago === 'rechazado' ? '#c0392b' : '#f39c12'
-            }}>
-              {estatusPago}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <span>Estatus del Pago: </span>
+              {renderEstatusPagoBadge(estatusPago)}
+            </div>
 
             {estatusPago !== 'pagado' && (
               <div style={{ marginTop: '10px' }}>
@@ -1716,6 +1746,42 @@ function VistaPedidos({ idioma, grupos, productos, historial, cargarPedidos, pag
     } catch (err) { console.error(err); }
   };
 
+  const eliminarPedido = (id) => {
+    Swal.fire({
+      title: '¿Eliminar pedido?',
+      text: 'Esta acción no se puede deshacer',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#c0392b',
+      cancelButtonColor: '#888',
+      confirmButtonText: 'Eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await axios.delete(`${API_URL}/pedidos/${id}`);
+          Swal.fire({
+            icon: 'success',
+            title: 'Eliminado',
+            text: 'Pedido eliminado correctamente',
+            confirmButtonColor: '#f06292',
+            timer: 1500,
+            showConfirmButton: false
+          });
+          cargarPedidos();
+        } catch (err) {
+          console.error(err);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'No se pudo eliminar el pedido',
+            confirmButtonColor: '#f06292'
+          });
+        }
+      }
+    });
+  };
+
   // Pedidos Filtrados (Para Admin/Empleado)
   const pedidosFiltrados = useMemo(() => {
     let lista = [...historial];
@@ -1902,6 +1968,7 @@ function VistaPedidos({ idioma, grupos, productos, historial, cargarPedidos, pag
                       <th style={thStyle}>FECHA</th>
                       <th style={thStyle}>PAGO MP</th>
                       <th style={thStyle}>{t.estatus}</th>
+                      {esAdmin && <th style={{ ...thStyle, textAlign: 'center' }}>ACCIONES</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1914,7 +1981,7 @@ function VistaPedidos({ idioma, grupos, productos, historial, cargarPedidos, pag
                           <td style={tdStyle}>{p.tipo_articulo}</td>
                           <td style={tdStyle}>{p.fecha_creacion ? new Date(p.fecha_creacion).toLocaleDateString() : '—'}</td>
                           <td style={tdStyle}>
-                            <span style={{ fontWeight: 600, fontSize: '0.78rem', textTransform: 'uppercase', color: estatusPago === 'pagado' ? '#27ae60' : '#888' }}>{estatusPago}</span>
+                            {renderEstatusPagoBadge(estatusPago)}
                           </td>
                           <td style={tdStyle}>
                             <select className="form-select" value={p.estatus || 'pendiente'} onChange={e => actualizarEstado(p.id, e.target.value)}>
@@ -1923,6 +1990,33 @@ function VistaPedidos({ idioma, grupos, productos, historial, cargarPedidos, pag
                               <option value="entregado">{t.entregado}</option>
                             </select>
                           </td>
+                          {esAdmin && (
+                            <td style={{ ...tdStyle, textAlign: 'center' }}>
+                              <button 
+                                onClick={() => eliminarPedido(p.id)}
+                                style={{
+                                  background: '#fff',
+                                  color: '#c0392b',
+                                  border: '1px solid #c0392b',
+                                  padding: '5px 12px',
+                                  cursor: 'pointer',
+                                  fontFamily: "'Jost', sans-serif",
+                                  fontSize: '0.75rem',
+                                  transition: 'all 0.2s'
+                                }}
+                                onMouseOver={e => {
+                                  e.target.style.background = '#c0392b';
+                                  e.target.style.color = '#fff';
+                                }}
+                                onMouseOut={e => {
+                                  e.target.style.background = '#fff';
+                                  e.target.style.color = '#c0392b';
+                                }}
+                              >
+                                Eliminar
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}

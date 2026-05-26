@@ -206,6 +206,19 @@ app.patch('/pedidos/:id/estatus-pago', async (req, res) => {
 });
 
 // ===============================
+// PEDIDOS — DELETE
+// ===============================
+app.delete('/pedidos/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM pedidos WHERE id = $1', [id]);
+    res.json({ message: 'Pedido eliminado correctamente' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===============================
 // PERFIL — GET
 // ===============================
 app.get('/perfil/:username', async (req, res) => {
