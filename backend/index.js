@@ -276,9 +276,9 @@ app.post('/crear-preferencia', async (req, res) => {
         items: itemsMP,
         payer: { name: nombre_cliente },
         back_urls: {
-          success: 'http://44.245.212.173/?status=approved',
-          failure: 'http://44.245.212.173/?status=rejected',
-          pending: 'http://44.245.212.173/?status=pending'
+          success: 'http://54.213.86.164/?status=approved',
+          failure: 'http://54.213.86.164/?status=rejected',
+          pending: 'http://54.213.86.164/?status=pending'
         },
         auto_return: 'approved',
         statement_descriptor: 'JEUDI SHOP'
@@ -301,9 +301,9 @@ app.get('/test-mp', async (req, res) => {
       body: {
         items: [{ title: 'Test', quantity: 1, unit_price: 100, currency_id: 'MXN' }],
         back_urls: { 
-          success: 'http://44.245.212.173', 
-          failure: 'http://44.245.212.173', 
-          pending: 'http://44.245.212.173' 
+          success: 'http://54.213.86.164', 
+          failure: 'http://54.213.86.164', 
+          pending: 'http://54.213.86.164' 
         }
       }
     });
