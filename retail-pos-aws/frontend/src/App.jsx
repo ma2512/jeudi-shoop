@@ -3,7 +3,7 @@ import axios from 'axios';
 import Swal from 'sweetalert2';
 import { Authenticator, ThemeProvider, useAuthenticator, View, Image, Text } from '@aws-amplify/ui-react';
 import { Amplify } from 'aws-amplify';
-import { fetchAuthSession } from 'aws-amplify/auth';
+import { fetchAuthSession, fetchUserAttributes } from 'aws-amplify/auth';
 import '@aws-amplify/ui-react/styles.css';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -192,7 +192,7 @@ const globalStyles = `
 // ===============================
 // NAVBAR
 // ===============================
-function Navbar({ user, signOut, pantalla, setPantalla, idioma, setIdioma, grupos, pedidosPendientes }) {
+function Navbar({ user, signOut, pantalla, setPantalla, idioma, setIdioma, grupos, pedidosPendientes, carrito }) {
   const t = textos[idioma];
   const esAdmin = grupos.some(g => ['admin', 'Admin'].includes(g));
   const getLinkStyle = (p) => ({ color: pantalla === p ? '#f06292' : '#1a1a1a', borderBottom: pantalla === p ? '2px solid #f06292' : '2px solid transparent' });
@@ -220,6 +220,24 @@ function Navbar({ user, signOut, pantalla, setPantalla, idioma, setIdioma, grupo
           )}
           {user && esAdmin && <button className="nav-link" style={getLinkStyle('roles')} onClick={() => setPantalla('roles')}>{t.roles}</button>}
           {user && <button className="nav-link" style={getLinkStyle('perfil')} onClick={() => setPantalla('perfil')}>{t.perfil}</button>}
+          
+          {/* Carrito de compras */}
+          <div className="nav-badge-wrap" style={{ marginRight: '8px' }}>
+            <button className="nav-link" onClick={() => setPantalla('carrito')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', display: 'flex', alignItems: 'center' }}>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke={pantalla === 'carrito' ? '#f06292' : '#1a1a1a'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', transition: 'stroke 0.2s' }}>
+                <circle cx="9" cy="21" r="1"></circle>
+                <circle cx="20" cy="21" r="1"></circle>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+              </svg>
+            </button>
+            {carrito && carrito.reduce((sum, item) => sum + item.cantidad, 0) > 0 && (
+              <span className="nav-badge" style={{ background: '#f06292', color: '#fff' }}>
+                {carrito.reduce((sum, item) => sum + item.cantidad, 0)}
+              </span>
+            )}
+          </div>
+
           <button onClick={() => setIdioma(idioma === 'es' ? 'en' : 'es')}
             style={{ background: '#fff', border: '1px solid #f8bbd0', padding: '5px 10px', cursor: 'pointer', fontSize: '0.75rem', fontFamily: "'Jost', sans-serif" }}>
             {idioma.toUpperCase()}
@@ -318,7 +336,7 @@ function VistaInicio({ idioma, setPantalla, productos, setProductoDetalle }) {
 // ===============================
 // DETALLE DE PRODUCTO
 // ===============================
-function VistaDetalle({ producto, setPantalla, user, t, setProductoPreseleccionado }) {
+function VistaDetalle({ producto, setPantalla, user, t, setProductoPreseleccionado, agregarAlCarrito }) {
   if (!producto) { setPantalla('catalogo'); return null; }
   return (
     <div style={{ minHeight: '70vh' }}>
@@ -350,19 +368,27 @@ function VistaDetalle({ producto, setPantalla, user, t, setProductoPreselecciona
               Cada pieza es creada a mano con materiales de calidad seleccionados. El tiempo de elaboracion puede variar segun el articulo.
             </p>
           </div>
-          <button
-            onClick={() => {
-              setProductoPreseleccionado(producto.nombre);
-              if (user) {
-                setPantalla('pedido');
-              } else {
-                setPantalla('login');
-              }
-            }}
-            style={{ background: '#1a1a1a', color: '#fff', border: 'none', padding: '15px 40px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.15em', transition: 'background 0.25s', width: '100%' }}
-            onMouseOver={e => e.target.style.background='#f06292'} onMouseOut={e => e.target.style.background='#1a1a1a'}>
-            {t.pedirAhora}
-          </button>
+          <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+            <button
+              onClick={() => agregarAlCarrito(producto)}
+              style={{ flex: 1, background: 'none', border: '1px solid #1a1a1a', color: '#1a1a1a', padding: '15px 20px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.1em', transition: 'all 0.25s' }}
+              onMouseOver={e => { e.target.style.background='#fce4ec'; }} onMouseOut={e => { e.target.style.background='none'; }}>
+              Añadir al Carrito
+            </button>
+            <button
+              onClick={() => {
+                setProductoPreseleccionado(producto);
+                if (user) {
+                  setPantalla('checkout');
+                } else {
+                  setPantalla('login');
+                }
+              }}
+              style={{ flex: 1, background: '#1a1a1a', color: '#fff', border: 'none', padding: '15px 20px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.1em', transition: 'all 0.25s' }}
+              onMouseOver={e => e.target.style.background='#f06292'} onMouseOut={e => e.target.style.background='#1a1a1a'}>
+              Comprar Ahora
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -372,15 +398,12 @@ function VistaDetalle({ producto, setPantalla, user, t, setProductoPreselecciona
 // ===============================
 // PERFIL DE USUARIO
 // ===============================
-function VistaPerfil({ idioma, grupos, historial, profilePhoto, setProfilePhoto, displayName, setDisplayName }) {
+function VistaPerfil({ idioma, grupos, profilePhoto, setProfilePhoto, displayName, setDisplayName, email }) {
   const t = textos[idioma];
   const { user } = useAuthenticator((context) => [context.user]);
-  const email = user?.signInDetails?.loginId || user?.username || '—';
   const username = user?.username || '—';
 
   const [editName, setEditName] = useState(displayName || username);
-  const [paginaActual, setPaginaActual] = useState(1);
-  const POR_PAGINA = 5;
 
   const esAdmin = grupos.some(g => ['admin', 'Admin'].includes(g));
   const esEmpleado = grupos.some(g => ['empleado', 'Empleado'].includes(g));
@@ -440,10 +463,6 @@ function VistaPerfil({ idioma, grupos, historial, profilePhoto, setProfilePhoto,
     Swal.fire({ icon: 'success', title: 'Listo', text: 'Nombre actualizado', confirmButtonColor: '#f06292', timer: 1500, showConfirmButton: false });
   };
 
-  // Historial paginado
-  const totalPaginas = Math.ceil(historial.length / POR_PAGINA);
-  const historialPagina = historial.slice((paginaActual - 1) * POR_PAGINA, paginaActual * POR_PAGINA);
-
   return (
     <div style={{ padding: '60px 8%', maxWidth: '800px', margin: '0 auto' }}>
       <p style={{ fontSize: '0.72rem', letterSpacing: '0.18em', color: '#f06292', marginBottom: '10px' }}>— CUENTA —</p>
@@ -484,7 +503,7 @@ function VistaPerfil({ idioma, grupos, historial, profilePhoto, setProfilePhoto,
           </div>
           <div className="perfil-campo">
             <span className="perfil-label">{t.email}</span>
-            <span className="perfil-valor">{email}</span>
+            <span className="perfil-valor">{email || '—'}</span>
           </div>
           <div className="perfil-campo" style={{ borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
             <span className="perfil-label">{t.rolAsignado}</span>
@@ -495,51 +514,6 @@ function VistaPerfil({ idioma, grupos, historial, profilePhoto, setProfilePhoto,
           </div>
         </div>
       </div>
-
-      {/* Historial de Pedidos Completo y Paginado */}
-      {!esStaff && (
-        <div style={{ background: '#fff', border: '1px solid #fce4ec', padding: '36px', borderRadius: '4px' }}>
-          <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.2rem', color: '#1a1a1a', marginBottom: '24px' }}>Historial Completo de Pedidos</h3>
-        {historial.length === 0 ? (
-          <p style={{ color: '#999', fontSize: '0.85rem' }}>No has realizado ningun pedido aun.</p>
-        ) : (
-          <div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', marginBottom: '20px' }}>
-              <thead>
-                <tr style={{ background: '#fce4ec' }}>
-                  <th style={thStyle}>ID</th>
-                  <th style={thStyle}>Producto</th>
-                  <th style={thStyle}>Estatus</th>
-                  <th style={thStyle}>Fecha</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historialPagina.map(p => (
-                  <tr key={p.id} className="table-row">
-                    <td style={tdStyle}><span style={{ color: '#f06292', fontWeight: 600 }}>#{p.id}</span></td>
-                    <td style={tdStyle}>{p.tipo_articulo}</td>
-                    <td style={tdStyle}>
-                      <span className={`estatus-badge estatus-${p.estatus || 'pendiente'}`}>{p.estatus || 'Pendiente'}</span>
-                    </td>
-                    <td style={tdStyle}>{p.fecha_creacion ? new Date(p.fecha_creacion).toLocaleDateString() : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {totalPaginas > 1 && (
-              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                <button className="pagination-btn" onClick={() => setPaginaActual(p => Math.max(1, p - 1))} disabled={paginaActual === 1}>‹</button>
-                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(n => (
-                  <button key={n} className={`pagination-btn${paginaActual === n ? ' active' : ''}`} onClick={() => setPaginaActual(n)}>{n}</button>
-                ))}
-                <button className="pagination-btn" onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))} disabled={paginaActual === totalPaginas}>›</button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      )}
     </div>
   );
 }
@@ -1540,7 +1514,7 @@ function GestorDocumentos({ documentos, setDocumentos }) {
 // ===============================
 // VISTA CATALOGO
 // ===============================
-function VistaCatalogo({ user, setPantalla, idioma, productos, setProductos, grupos, setProductoDetalle, categorias, setProductoPreseleccionado, cargarCategorias, cargarProductos, ventas }) {
+function VistaCatalogo({ user, setPantalla, idioma, productos, setProductos, grupos, setProductoDetalle, categorias, setProductoPreseleccionado, cargarCategorias, cargarProductos, ventas, agregarAlCarrito }) {
   const t = textos[idioma];
   const esAdmin = grupos.some(g => ['admin', 'Admin'].includes(g));
   const [tabActiva, setTabActiva] = useState('catalogo');
@@ -1660,20 +1634,25 @@ function VistaCatalogo({ user, setPantalla, idioma, productos, setProductos, gru
                       <p style={{ color: '#888', fontSize: '0.85rem', marginTop: '8px', lineHeight: '1.6', flexGrow: 1 }}>{p.desc}</p>
                       <p style={{ color: '#f06292', fontWeight: 600, fontSize: '1.1rem', marginTop: '12px' }}>${p.precio.toLocaleString()}</p>
                       <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-                        <button style={{ flex: 1, background: 'none', border: '1px solid #1a1a1a', padding: '10px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.75rem', letterSpacing: '0.1em', transition: 'all 0.2s' }}
+                        <button style={{ flex: 1, background: 'none', border: '1px solid #1a1a1a', padding: '10px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.72rem', letterSpacing: '0.05em', transition: 'all 0.2s' }}
                           onMouseOver={e => { e.target.style.background='#fce4ec'; }} onMouseOut={e => { e.target.style.background='none'; }}
                           onClick={() => { setProductoDetalle(p); setPantalla('detalle'); }}>
                           {t.verDetalle}
                         </button>
-                        <button className="btn-pedir" style={{ flex: 1, marginTop: 0 }} onClick={() => {
-                          setProductoPreseleccionado(p.nombre);
-                          if (user) {
-                            setPantalla('pedido');
-                          } else {
-                            setPantalla('login');
-                          }
-                        }}>{t.pedirAhora}</button>
+                        <button style={{ flex: 1, background: 'none', border: '1px solid #f06292', color: '#f06292', padding: '10px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.72rem', letterSpacing: '0.05em', transition: 'all 0.2s' }}
+                          onMouseOver={e => { e.target.style.background='#fce4ec'; }} onMouseOut={e => { e.target.style.background='none'; }}
+                          onClick={() => agregarAlCarrito(p)}>
+                          Añadir al Carrito
+                        </button>
                       </div>
+                      <button className="btn-pedir" style={{ width: '100%', marginTop: '8px' }} onClick={() => {
+                        setProductoPreseleccionado(p);
+                        if (user) {
+                          setPantalla('checkout');
+                        } else {
+                          setPantalla('login');
+                        }
+                      }}>Comprar Ahora</button>
                     </div>
                   </div>
                 ))}
@@ -1691,31 +1670,12 @@ function VistaCatalogo({ user, setPantalla, idioma, productos, setProductos, gru
 // ===============================
 // VISTA PEDIDOS
 // ===============================
-function VistaPedidos({ idioma, grupos, productos, onHistorialCargado, pagosMap, setPagosMap, addVentaAuto, productoPreseleccionado, setProductoPreseleccionado }) {
+function VistaPedidos({ idioma, grupos, productos, historial, cargarPedidos, pagosMap, setPagosMap, addVentaAuto, productoPreseleccionado, setProductoPreseleccionado }) {
   const t = textos[idioma];
   const { user } = useAuthenticator((context) => [context.user]);
   const userLogin = user?.signInDetails?.loginId || user?.username || '';
   
-  const [historial, setHistorial] = useState([]);
-  const [pedido, setPedido] = useState({
-    nombre_cliente: userLogin,
-    tipo_articulo: productoPreseleccionado || '',
-    descripcion_extra: ''
-  });
-  const [cargando, setCargando] = useState(false);
-  const [pedidoConfirmado, setPedidoConfirmado] = useState(null);
-
-  useEffect(() => {
-    if (userLogin) {
-      setPedido(prev => ({ ...prev, nombre_cliente: prev.nombre_cliente || userLogin }));
-    }
-  }, [userLogin]);
-
-  useEffect(() => {
-    if (productoPreseleccionado) {
-      setPedido(prev => ({ ...prev, tipo_articulo: productoPreseleccionado }));
-    }
-  }, [productoPreseleccionado]);
+  const [pagCliente, setPagCliente] = useState(1);
 
   // Filtros/Búsqueda/Paginación para Admin/Staff
   const [busqueda, setBusqueda] = useState('');
@@ -1727,49 +1687,6 @@ function VistaPedidos({ idioma, grupos, productos, onHistorialCargado, pagosMap,
   const esAdmin = grupos.some(g => ['admin', 'Admin'].includes(g));
   const esEmpleado = grupos.some(g => ['empleado', 'Empleado'].includes(g));
   const esStaff = esAdmin || esEmpleado;
-
-  const cargarPedidos = useCallback(async () => {
-    if (!user) return;
-    try {
-      const userLogin = user?.signInDetails?.loginId || user?.username;
-      const url = esStaff ? `${API_URL}/pedidos` : `${API_URL}/pedidos?email=${encodeURIComponent(userLogin)}`;
-      const res = await axios.get(url);
-      setHistorial(res.data);
-      if (onHistorialCargado) onHistorialCargado(res.data);
-    } catch (err) { console.error(err); }
-  }, [user, esStaff, onHistorialCargado]);
-
-  useEffect(() => { cargarPedidos(); }, [cargarPedidos]);
-
-  const enviarPedido = async (e) => {
-    e.preventDefault();
-    setCargando(true);
-    try {
-      // 1. Guardar en PostgreSQL
-      const resPost = await axios.post(`${API_URL}/pedidos`, pedido);
-      const dbPedido = resPost.data;
-
-      // 2. Obtener precio
-      const precioProducto = productos.find(p =>
-        p.nombre.toLowerCase().trim() === pedido.tipo_articulo.toLowerCase().trim()
-      )?.precio || 100;
-
-      // 3. Preferencia Mercado Pago
-      const { data } = await axios.post(`${API_URL}/crear-preferencia`, {
-        nombre_producto: pedido.tipo_articulo,
-        precio: precioProducto,
-        nombre_cliente: pedido.nombre_cliente
-      });
-
-      // 4. Confirmacion con id correcto
-      setPedidoConfirmado({ ...pedido, id: dbPedido.id, init_point: data.init_point });
-      setPedido({ nombre_cliente: userLogin, tipo_articulo: '', descripcion_extra: '' });
-      setProductoPreseleccionado(null);
-      setTimeout(() => cargarPedidos(), 800);
-    } catch (err) {
-      Swal.fire({ icon: 'error', title: t.error, text: t.noEnviar, confirmButtonColor: '#f06292' });
-    } finally { setCargando(false); }
-  };
 
   const actualizarEstado = async (id, estado) => {
     try {
@@ -1898,7 +1815,6 @@ function VistaPedidos({ idioma, grupos, productos, onHistorialCargado, pagosMap,
 
   return (
     <div style={{ padding: '60px 8%' }}>
-      {pedidoConfirmado && <ConfirmacionPedido pedido={pedidoConfirmado} onCerrar={() => { setPedidoConfirmado(null); cargarPedidos(); }} onPagarClick={handlePagarClick} pagosMap={pagosMap} setPagosMap={setPagosMap} />}
 
       <div style={{ padding: '28px 32px', marginBottom: '40px', borderRadius: '4px', background: esStaff ? '#1a1a1a' : '#fce4ec', color: esStaff ? '#fff' : '#1a1a1a', borderLeft: '5px solid #f06292' }}>
         <h2 style={{ fontFamily: "'Playfair Display', serif", marginBottom: '8px' }}>{t.panel}</h2>
@@ -2014,19 +1930,64 @@ function VistaPedidos({ idioma, grupos, productos, onHistorialCargado, pagosMap,
       </div>
 
       {!esStaff && (
-        <div style={{ background: '#fff', border: '1px solid #fce4ec', padding: '36px', maxWidth: '600px' }}>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.6rem', marginBottom: '24px', color: '#1a1a1a' }}>{t.nuevoPedido}</h2>
-          <form onSubmit={enviarPedido}>
-            <input className="form-input" placeholder={t.nombre} value={pedido.nombre_cliente} onChange={e => setPedido({ ...pedido, nombre_cliente: e.target.value })} required />
-            <input className="form-input" placeholder={t.producto} value={pedido.tipo_articulo} onChange={e => setPedido({ ...pedido, tipo_articulo: e.target.value })} required />
-            <textarea className="form-input" rows={3} placeholder={t.descripcion} value={pedido.descripcion_extra} onChange={e => setPedido({ ...pedido, descripcion_extra: e.target.value })} />
-            <button type="submit" disabled={cargando}
-              style={{ background: cargando ? '#999' : '#1a1a1a', color: '#fff', border: 'none', padding: '13px 32px', cursor: cargando ? 'not-allowed' : 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.12em', transition: 'background 0.25s', marginTop: '8px' }}
-              onMouseOver={e => { if (!cargando) e.target.style.background='#f06292'; }}
-              onMouseOut={e => { if (!cargando) e.target.style.background='#1a1a1a'; }}>
-              {cargando ? '...' : t.enviar}
-            </button>
-          </form>
+        <div style={{ background: '#fff', border: '1px solid #fce4ec', padding: '36px', borderRadius: '4px', marginTop: '30px' }}>
+          <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: '#1a1a1a', marginBottom: '24px' }}>
+            Historial Completo de Pedidos
+          </h3>
+          {historial.length === 0 ? (
+            <p style={{ color: '#999', fontSize: '0.85rem' }}>No has realizado ningún pedido aún.</p>
+          ) : (
+            <div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', marginBottom: '20px' }}>
+                  <thead>
+                    <tr style={{ background: '#fce4ec' }}>
+                      <th style={thStyle}>ID</th>
+                      <th style={thStyle}>Producto</th>
+                      <th style={thStyle}>Estatus</th>
+                      <th style={thStyle}>Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const POR_PAGINA_CLIENTE = 5;
+                      const totalPaginasCliente = Math.ceil(historial.length / POR_PAGINA_CLIENTE);
+                      const historialPaginaCliente = historial.slice((pagCliente - 1) * POR_PAGINA_CLIENTE, pagCliente * POR_PAGINA_CLIENTE);
+                      return historialPaginaCliente.map(p => (
+                        <tr key={p.id} className="table-row">
+                          <td style={tdStyle}><span style={{ color: '#f06292', fontWeight: 600 }}>#{p.id}</span></td>
+                          <td style={tdStyle}>{p.tipo_articulo}</td>
+                          <td style={tdStyle}>
+                            <span className={`estatus-badge estatus-${p.estatus || 'pendiente'}`}>{p.estatus || 'Pendiente'}</span>
+                          </td>
+                          <td style={tdStyle}>
+                            {p.fecha_creacion ? new Date(p.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              {(() => {
+                const POR_PAGINA_CLIENTE = 5;
+                const totalPaginasCliente = Math.ceil(historial.length / POR_PAGINA_CLIENTE);
+                if (totalPaginasCliente > 1) {
+                  return (
+                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                      <button className="pagination-btn" onClick={() => setPagCliente(p => Math.max(1, p - 1))} disabled={pagCliente === 1}>‹</button>
+                      {Array.from({ length: totalPaginasCliente }, (_, i) => i + 1).map(n => (
+                        <button key={n} className={`pagination-btn${pagCliente === n ? ' active' : ''}`} onClick={() => setPagCliente(n)}>{n}</button>
+                      ))}
+                      <button className="pagination-btn" onClick={() => setPagCliente(p => Math.min(totalPaginasCliente, p + 1))} disabled={pagCliente === totalPaginasCliente}>›</button>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -2232,7 +2193,53 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
   const [grupos, setGrupos] = useState([]);
   const [productoDetalle, setProductoDetalle] = useState(null);
   const [productoPreseleccionado, setProductoPreseleccionado] = useState(null);
-  const [historialGlobal, setHistorialGlobal] = useState([]);
+  const [historial, setHistorial] = useState([]);
+  const [userEmail, setUserEmail] = useState('');
+  
+  const [carrito, setCarrito] = useState(() => {
+    const saved = localStorage.getItem('jeudi_carrito');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('jeudi_carrito', JSON.stringify(carrito));
+  }, [carrito]);
+
+  const agregarAlCarrito = (producto) => {
+    setCarrito(prev => {
+      const match = prev.find(item => item.id === producto.id);
+      if (match) {
+        return prev.map(item => item.id === producto.id ? { ...item, cantidad: item.cantidad + 1 } : item);
+      }
+      return [...prev, { ...producto, cantidad: 1 }];
+    });
+    Swal.fire({
+      icon: 'success',
+      title: '¡Agregado!',
+      text: `${producto.nombre} se agregó al carrito.`,
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 2000,
+      timerProgressBar: true
+    });
+  };
+
+  const actualizarCantidad = (id, cant) => {
+    if (cant <= 0) {
+      eliminarDelCarrito(id);
+      return;
+    }
+    setCarrito(prev => prev.map(item => item.id === id ? { ...item, cantidad: cant } : item));
+  };
+
+  const eliminarDelCarrito = (id) => {
+    setCarrito(prev => prev.filter(item => item.id !== id));
+  };
+
+  const vaciarCarrito = () => {
+    setCarrito([]);
+  };
   
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
@@ -2307,15 +2314,41 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
     }
   };
 
+  const cargarPedidos = useCallback(async () => {
+    if (!user) return;
+    try {
+      const userLogin = user?.signInDetails?.loginId || user?.username;
+      const esAdmin = grupos.some(g => ['admin', 'Admin'].includes(g));
+      const esEmpleado = grupos.some(g => ['empleado', 'Empleado'].includes(g));
+      const esStaff = esAdmin || esEmpleado;
+      const url = esStaff ? `${API_URL}/pedidos` : `${API_URL}/pedidos?email=${encodeURIComponent(userLogin)}`;
+      const res = await axios.get(url);
+      setHistorial(res.data);
+    } catch (err) { console.error('Error al cargar pedidos en Content:', err); }
+  }, [user, grupos]);
+
   useEffect(() => {
-    if (user) fetchAuthSession().then(s => setGrupos(s.tokens?.idToken?.payload?.['cognito:groups'] || [])).catch(() => setGrupos([]));
-    else setGrupos([]);
+    if (user && grupos.length >= 0) {
+      cargarPedidos();
+    } else {
+      setHistorial([]);
+    }
+  }, [user, grupos, cargarPedidos]);
+
+  useEffect(() => {
+    if (user) {
+      fetchAuthSession().then(s => setGrupos(s.tokens?.idToken?.payload?.['cognito:groups'] || [])).catch(() => setGrupos([]));
+      fetchUserAttributes().then(attrs => setUserEmail(attrs.email || '')).catch(() => setUserEmail(''));
+    } else {
+      setGrupos([]);
+      setUserEmail('');
+    }
   }, [user]);
 
   useEffect(() => {
     if (user && pantalla === 'login') {
       if (productoPreseleccionado) {
-        setPantalla('pedido');
+        setPantalla('checkout');
       } else {
         setPantalla('inicio');
       }
@@ -2323,25 +2356,27 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
   }, [user, pantalla, setPantalla, productoPreseleccionado]);
 
   useEffect(() => {
-    if (!user && ['pedido', 'perfil', 'roles'].includes(pantalla)) {
+    if (!user && ['pedido', 'perfil', 'roles', 'checkout', 'carrito'].includes(pantalla)) {
       setPantalla('inicio');
     }
   }, [user, pantalla, setPantalla]);
 
   const esAdmin = grupos.some(g => ['admin', 'Admin'].includes(g));
-  const pedidosPendientes = esAdmin ? historialGlobal.filter(p => !p.estatus || p.estatus === 'pendiente').length : 0;
+  const pedidosPendientes = esAdmin ? historial.filter(p => !p.estatus || p.estatus === 'pendiente').length : 0;
 
   return (
     <>
       <style>{globalStyles}</style>
-      <Navbar user={user} signOut={signOut} pantalla={pantalla} setPantalla={setPantalla} idioma={idioma} setIdioma={setIdioma} grupos={grupos} pedidosPendientes={pedidosPendientes} />
+      <Navbar user={user} signOut={signOut} pantalla={pantalla} setPantalla={setPantalla} idioma={idioma} setIdioma={setIdioma} grupos={grupos} pedidosPendientes={pedidosPendientes} carrito={carrito} />
       <main>
         {pantalla === 'inicio' && <VistaInicio idioma={idioma} setPantalla={setPantalla} productos={productos} setProductoDetalle={setProductoDetalle} />}
-        {pantalla === 'catalogo' && <VistaCatalogo user={user} setPantalla={setPantalla} idioma={idioma} productos={productos} setProductos={setProductos} grupos={grupos} setProductoDetalle={setProductoDetalle} categorias={categorias} setProductoPreseleccionado={setProductoPreseleccionado} cargarCategorias={cargarCategorias} cargarProductos={cargarProductos} ventas={ventas} />}
-        {pantalla === 'detalle' && <VistaDetalle producto={productoDetalle} setPantalla={setPantalla} user={user} t={textos[idioma]} setProductoPreseleccionado={setProductoPreseleccionado} />}
-        {pantalla === 'pedido' && user && <VistaPedidos idioma={idioma} grupos={grupos} productos={productos} onHistorialCargado={setHistorialGlobal} pagosMap={pagosMap} setPagosMap={setPagosMap} addVentaAuto={addVentaAuto} productoPreseleccionado={productoPreseleccionado} setProductoPreseleccionado={setProductoPreseleccionado} />}
-        {pantalla === 'perfil' && user && <VistaPerfil idioma={idioma} grupos={grupos} historial={historialGlobal} profilePhoto={profilePhoto} setProfilePhoto={setProfilePhoto} displayName={displayName} setDisplayName={setDisplayName} />}
+        {pantalla === 'catalogo' && <VistaCatalogo user={user} setPantalla={setPantalla} idioma={idioma} productos={productos} setProductos={setProductos} grupos={grupos} setProductoDetalle={setProductoDetalle} categorias={categorias} setProductoPreseleccionado={setProductoPreseleccionado} cargarCategorias={cargarCategorias} cargarProductos={cargarProductos} ventas={ventas} agregarAlCarrito={agregarAlCarrito} />}
+        {pantalla === 'detalle' && <VistaDetalle producto={productoDetalle} setPantalla={setPantalla} user={user} t={textos[idioma]} setProductoPreseleccionado={setProductoPreseleccionado} agregarAlCarrito={agregarAlCarrito} />}
+        {pantalla === 'pedido' && user && <VistaPedidos idioma={idioma} grupos={grupos} productos={productos} historial={historial} cargarPedidos={cargarPedidos} pagosMap={pagosMap} setPagosMap={setPagosMap} addVentaAuto={addVentaAuto} productoPreseleccionado={productoPreseleccionado} setProductoPreseleccionado={setProductoPreseleccionado} />}
+        {pantalla === 'perfil' && user && <VistaPerfil idioma={idioma} grupos={grupos} profilePhoto={profilePhoto} setProfilePhoto={setProfilePhoto} displayName={displayName} setDisplayName={setDisplayName} email={userEmail} />}
         {pantalla === 'roles' && <VistaRoles idioma={idioma} grupos={grupos} />}
+        {pantalla === 'carrito' && <VistaCarrito carrito={carrito} actualizarCantidad={actualizarCantidad} eliminarDelCarrito={eliminarDelCarrito} setPantalla={setPantalla} t={textos[idioma]} />}
+        {pantalla === 'checkout' && user && <VistaCheckout user={user} userEmail={userEmail} displayName={displayName} carrito={carrito} vaciarCarrito={vaciarCarrito} productoPreseleccionado={productoPreseleccionado} setProductoPreseleccionado={setProductoPreseleccionado} setPantalla={setPantalla} t={textos[idioma]} productos={productos} pagosMap={pagosMap} setPagosMap={setPagosMap} addVentaAuto={addVentaAuto} cargarPedidos={cargarPedidos} />}
         {pantalla === 'login' && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 20px' }}>
             <Authenticator components={components} loginMechanisms={['username', 'email']} signUpAttributes={['email']} />
@@ -2362,6 +2397,305 @@ export default function App() {
         <Content pantalla={pantalla} setPantalla={setPantalla} idioma={idioma} setIdioma={setIdioma} />
       </Authenticator.Provider>
     </ThemeProvider>
+  );
+}
+
+// ===============================
+// VISTA CARRITO
+// ===============================
+function VistaCarrito({ carrito, actualizarCantidad, eliminarDelCarrito, setPantalla, t }) {
+  const total = carrito.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
+
+  return (
+    <div style={{ padding: '60px 8%', minHeight: '75vh' }}>
+      <button onClick={() => setPantalla('catalogo')}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.82rem', letterSpacing: '0.1em', color: '#888', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '30px' }}
+        onMouseOver={e => e.target.style.color='#f06292'} onMouseOut={e => e.target.style.color='#888'}>
+        &larr; Seguir comprando
+      </button>
+
+      <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '2.2rem', color: '#1a1a1a', marginBottom: '36px' }}>Tu Carrito</h1>
+
+      {carrito.length === 0 ? (
+        <div style={{ padding: '60px 0', border: '1px dashed #fce4ec', borderRadius: '4px', textAlign: 'center' }}>
+          <p style={{ color: '#999', fontSize: '1rem', marginBottom: '24px' }}>El carrito está vacío</p>
+          <button className="btn-pedir" style={{ marginTop: 0 }} onClick={() => setPantalla('catalogo')}>Ver Catálogo</button>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '40px', alignItems: 'start' }}>
+          {/* List of items */}
+          <div style={{ background: '#fff', border: '1px solid #fce4ec', borderRadius: '4px', padding: '24px' }}>
+            {carrito.map(item => (
+              <div key={item.id} style={{ display: 'flex', gap: '20px', borderBottom: '1px solid #fce4ec', padding: '20px 0', alignItems: 'center' }}>
+                <img src={resolverImagen(item.imagen)} alt={item.nombre}
+                  style={{ width: '80px', height: '80px', objectFit: 'cover', border: '1px solid #fce4ec' }}
+                  onError={e => e.target.src='https://via.placeholder.com/80x80/fce4ec/f06292?text=Jeudi'} />
+                
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.1rem', color: '#1a1a1a', margin: 0 }}>{item.nombre}</h3>
+                  <p style={{ color: '#f06292', fontWeight: 600, fontSize: '0.95rem', marginTop: '6px', margin: 0 }}>
+                    ${item.precio.toLocaleString()} c/u
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button onClick={() => actualizarCantidad(item.id, item.cantidad - 1)}
+                    style={{ background: '#fff', border: '1px solid #f8bbd0', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Jost', sans-serif", fontSize: '1rem' }}>-</button>
+                  <span style={{ minWidth: '24px', textAlign: 'center', fontWeight: 'bold', fontSize: '0.95rem' }}>{item.cantidad}</span>
+                  <button onClick={() => actualizarCantidad(item.id, item.cantidad + 1)}
+                    style={{ background: '#fff', border: '1px solid #f8bbd0', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Jost', sans-serif", fontSize: '1rem' }}>+</button>
+                </div>
+
+                <div style={{ minWidth: '100px', textAlign: 'right' }}>
+                  <p style={{ fontWeight: 700, color: '#1a1a1a', fontSize: '1.05rem', margin: 0 }}>
+                    ${(item.precio * item.cantidad).toLocaleString()}
+                  </p>
+                </div>
+
+                <button onClick={() => eliminarDelCarrito(item.id)}
+                  style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', padding: '8px', fontSize: '1.1rem' }}
+                  onMouseOver={e => e.target.style.color='#c0392b'} onMouseOut={e => e.target.style.color='#999'}>
+                  &times;
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Checkout Summary Box */}
+          <div style={{ background: '#fff', border: '1px solid #fce4ec', padding: '30px', borderRadius: '4px' }}>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.3rem', color: '#1a1a1a', margin: '0 0 20px', borderBottom: '1px solid #fce4ec', paddingBottom: '12px' }}>Resumen de Compra</h3>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px', fontSize: '0.95rem', color: '#666' }}>
+              <span>Productos ({carrito.reduce((sum, item) => sum + item.cantidad, 0)})</span>
+              <span>${total.toLocaleString()}</span>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', fontSize: '1.1rem', fontWeight: 'bold', color: '#1a1a1a', borderTop: '1px dashed #fce4ec', paddingTop: '16px' }}>
+              <span>Total</span>
+              <span style={{ color: '#f06292' }}>${total.toLocaleString()}</span>
+            </div>
+
+            <button onClick={() => setPantalla('checkout')} className="btn-pedir" style={{ width: '100%', padding: '14px', fontSize: '0.85rem' }}>
+              Proceder al Pago
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===============================
+// VISTA CHECKOUT
+// ===============================
+function VistaCheckout({ user, userEmail, displayName, carrito, vaciarCarrito, productoPreseleccionado, setProductoPreseleccionado, setPantalla, t, productos, pagosMap, setPagosMap, addVentaAuto, cargarPedidos }) {
+  const username = user?.username || '';
+  const [cargando, setCargando] = useState(false);
+  const [form, setForm] = useState({
+    nombre: displayName || username,
+    telefono: '',
+    direccion: '',
+    descripcion: ''
+  });
+
+  // Determinar productos a comprar
+  const items = useMemo(() => {
+    if (productoPreseleccionado) {
+      return [{
+        id: productoPreseleccionado.id,
+        nombre: productoPreseleccionado.nombre,
+        precio: parseFloat(productoPreseleccionado.precio),
+        imagen: productoPreseleccionado.imagen,
+        cantidad: 1
+      }];
+    }
+    return carrito;
+  }, [productoPreseleccionado, carrito]);
+
+  const total = items.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
+  const nombresArticulos = items.map(item => `${item.nombre} (x${item.cantidad})`).join(', ');
+
+  const handleInputChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const procesarPedido = async (paymentStatus, useMP = false) => {
+    if (!form.nombre.trim() || !form.telefono.trim() || !form.direccion.trim()) {
+      Swal.fire({ icon: 'warning', title: 'Campos incompletos', text: 'Por favor rellena el nombre, teléfono y dirección de envío.', confirmButtonColor: '#f06292' });
+      return;
+    }
+
+    setCargando(true);
+    try {
+      const extraDetails = `Dirección: ${form.direccion.trim()} | Tel: ${form.telefono.trim()}${form.descripcion.trim() ? ` | Notas: ${form.descripcion.trim()}` : ''}`;
+      
+      // 1. Guardar en PostgreSQL
+      const resPost = await axios.post(`${API_URL}/pedidos`, {
+        nombre_cliente: userEmail || username,
+        tipo_articulo: nombresArticulos,
+        descripcion_extra: extraDetails
+      });
+      const dbPedido = resPost.data;
+
+      if (useMP) {
+        // 2. Crear Preferencia Mercado Pago
+        const { data } = await axios.post(`${API_URL}/crear-preferencia`, {
+          nombre_producto: nombresArticulos,
+          precio: total,
+          nombre_cliente: form.nombre
+        });
+
+        // Guardar estatus
+        const updated = { ...pagosMap, [dbPedido.id]: 'en proceso de pago' };
+        setPagosMap(updated);
+        localStorage.setItem('jeudi_pagos_map', JSON.stringify(updated));
+
+        // Abrir pestaña MP
+        window.open(data.init_point, '_blank');
+        Swal.fire({ icon: 'info', title: 'Pago Pendiente', text: 'Se ha abierto la pestaña de pago de Mercado Pago.', confirmButtonColor: '#f06292' });
+      } else {
+        // Guardar estatus simulado
+        const updated = { ...pagosMap, [dbPedido.id]: paymentStatus };
+        setPagosMap(updated);
+        localStorage.setItem('jeudi_pagos_map', JSON.stringify(updated));
+
+        // Registrar venta automática si es exitoso
+        if (paymentStatus === 'pagado') {
+          await addVentaAuto(dbPedido, total);
+        }
+
+        Swal.fire({ icon: 'success', title: 'Pedido Guardado', text: `Tu pedido ha sido registrado con pago: ${paymentStatus.toUpperCase()}`, confirmButtonColor: '#f06292' });
+      }
+
+      // Limpieza y redirección
+      if (!productoPreseleccionado) {
+        vaciarCarrito();
+      }
+      setProductoPreseleccionado(null);
+      
+      // Forzar carga de pedidos en el estado global
+      setTimeout(() => {
+        cargarPedidos();
+        setPantalla('pedido');
+      }, 1000);
+      
+    } catch (err) {
+      console.error(err);
+      Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo procesar tu pedido. Inténtalo de nuevo.', confirmButtonColor: '#f06292' });
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (productoPreseleccionado) {
+      setProductoPreseleccionado(null);
+      setPantalla('catalogo');
+    } else {
+      setPantalla('carrito');
+    }
+  };
+
+  return (
+    <div style={{ padding: '60px 8%', minHeight: '75vh' }}>
+      <button onClick={handleBack}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.82rem', letterSpacing: '0.1em', color: '#888', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '30px' }}
+        onMouseOver={e => e.target.style.color='#f06292'} onMouseOut={e => e.target.style.color='#888'}>
+        &larr; Volver
+      </button>
+
+      <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '2.2rem', color: '#1a1a1a', marginBottom: '36px' }}>Checkout</h1>
+
+      {items.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <p style={{ color: '#999' }}>No hay productos para procesar.</p>
+          <button className="btn-pedir" onClick={() => setPantalla('catalogo')}>Ver Catálogo</button>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '5fr 4fr', gap: '40px', alignItems: 'start' }}>
+          
+          {/* Formulario de Envío */}
+          <div style={{ background: '#fff', border: '1px solid #fce4ec', padding: '36px', borderRadius: '4px' }}>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: '#1a1a1a', marginBottom: '24px' }}>Datos de Envío</h3>
+            
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', color: '#f06292', fontWeight: 600, marginBottom: '6px', letterSpacing: '0.05em' }}>DESTINATARIO *</label>
+              <input className="form-input" style={{ marginBottom: 0 }} name="nombre" value={form.nombre} onChange={handleInputChange} placeholder="Nombre completo" required />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', color: '#f06292', fontWeight: 600, marginBottom: '6px', letterSpacing: '0.05em' }}>TELÉFONO *</label>
+              <input className="form-input" style={{ marginBottom: 0 }} name="telefono" value={form.telefono} onChange={handleInputChange} placeholder="Teléfono de contacto (10 dígitos)" required />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', color: '#f06292', fontWeight: 600, marginBottom: '6px', letterSpacing: '0.05em' }}>DIRECCIÓN DE ENTREGA *</label>
+              <textarea className="form-input" style={{ marginBottom: 0 }} rows={3} name="direccion" value={form.direccion} onChange={handleInputChange} placeholder="Calle, Número, Colonia, C.P., Ciudad" required />
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', color: '#f06292', fontWeight: 600, marginBottom: '6px', letterSpacing: '0.05em' }}>INSTRUCCIONES ADICIONALES (OPCIONAL)</label>
+              <textarea className="form-input" style={{ marginBottom: 0 }} rows={2} name="descripcion" value={form.descripcion} onChange={handleInputChange} placeholder="Detalles de cómo quieres tu accesorio, indicaciones de entrega, etc." />
+            </div>
+          </div>
+
+          {/* Resumen y Pago */}
+          <div>
+            {/* Resumen de compra */}
+            <div style={{ background: '#fff', border: '1px solid #fce4ec', padding: '30px', borderRadius: '4px', marginBottom: '24px' }}>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.3rem', color: '#1a1a1a', margin: '0 0 16px', borderBottom: '1px solid #fce4ec', paddingBottom: '10px' }}>Resumen</h3>
+              
+              <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '16px' }}>
+                {items.map(item => (
+                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', padding: '6px 0', borderBottom: '1px dashed #fce4ec' }}>
+                    <span style={{ color: '#333' }}>{item.nombre} <strong style={{ color: '#f06292' }}>x{item.cantidad}</strong></span>
+                    <span style={{ fontWeight: 600 }}>${(item.precio * item.cantidad).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 'bold', color: '#1a1a1a', borderTop: '1px solid #fce4ec', paddingTop: '14px' }}>
+                <span>Total a Pagar</span>
+                <span style={{ color: '#f06292' }}>${total.toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* Simulación y Pago */}
+            <div style={{ background: '#fff', border: '1px solid #fce4ec', padding: '30px', borderRadius: '4px' }}>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.3rem', color: '#1a1a1a', margin: '0 0 16px' }}>Forma de Pago</h3>
+              
+              {/* Tarjetas de prueba info */}
+              <div style={{ background: '#fcf8e3', border: '1px solid #fbeed5', color: '#c09853', padding: '14px', borderRadius: '4px', fontSize: '0.78rem', lineHeight: '1.6', marginBottom: '20px' }}>
+                <strong style={{ color: '#b94a48', display: 'block', marginBottom: '4px' }}>Tarjetas de prueba Mercado Pago:</strong>
+                • <strong>Visa:</strong> 4011 1111 1111 1111 | CVV: 123 | Fecha: Cualquiera futura<br/>
+                • <strong>Mastercard:</strong> 4870 1111 1111 1111 | CVV: 123
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button onClick={() => procesarPedido('pagado', false)} disabled={cargando}
+                  style={{ background: '#27ae60', color: '#fff', border: 'none', padding: '12px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.82rem', letterSpacing: '0.08em', fontWeight: 600, transition: 'background 0.2s' }}
+                  onMouseOver={e => e.target.style.background='#219150'} onMouseOut={e => e.target.style.background='#27ae60'}>
+                  Simular Pago Exitoso
+                </button>
+
+                <button onClick={() => procesarPedido('rechazado', false)} disabled={cargando}
+                  style={{ background: '#c0392b', color: '#fff', border: 'none', padding: '12px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.82rem', letterSpacing: '0.08em', fontWeight: 600, transition: 'background 0.2s' }}
+                  onMouseOver={e => e.target.style.background='#a53124'} onMouseOut={e => e.target.style.background='#c0392b'}>
+                  Simular Pago Rechazado
+                </button>
+
+                <button onClick={() => procesarPedido('pendiente', true)} disabled={cargando}
+                  style={{ background: '#009ee3', color: '#fff', border: 'none', padding: '14px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.08em', fontWeight: 700, transition: 'background 0.2s', marginTop: '6px' }}
+                  onMouseOver={e => e.target.style.background='#007bb5'} onMouseOut={e => e.target.style.background='#009ee3'}>
+                  {cargando ? 'Procesando...' : 'Pagar con Mercado Pago'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      )}
+    </div>
   );
 }
 
