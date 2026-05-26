@@ -1823,7 +1823,7 @@ function VistaPedidos({ idioma, grupos, productos, onHistorialCargado, pagosMap,
   const pedidosEntregados = historial.filter(p => p.estatus === 'entregado').length;
   const totalVentas = historial.reduce((sum, order) => {
     const match = productos.find(p => p.nombre.toLowerCase().trim() === order.tipo_articulo.toLowerCase().trim());
-    return sum + (match ? match.precio : 0);
+    return sum + (match ? parseFloat(match.precio) : 0);
   }, 0);
 
   const totalPaginas = Math.ceil(pedidosFiltrados.length / POR_PAGINA);
@@ -2262,7 +2262,8 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
   const cargarProductos = useCallback(async () => {
     try {
       const res = await axios.get(`${API_URL}/productos`);
-      setProductos(res.data || []);
+      const dataParsed = (res.data || []).map(p => ({ ...p, precio: parseFloat(p.precio) }));
+      setProductos(dataParsed);
     } catch (err) {
       console.error('Error al cargar productos:', err);
     }
@@ -2271,7 +2272,8 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
   const cargarVentas = useCallback(async () => {
     try {
       const res = await axios.get(`${API_URL}/ventas`);
-      setVentas(res.data || []);
+      const dataParsed = (res.data || []).map(v => ({ ...v, monto: parseFloat(v.monto) }));
+      setVentas(dataParsed);
     } catch (err) {
       console.error('Error al cargar ventas:', err);
     }
