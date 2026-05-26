@@ -2322,6 +2322,12 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
     }
   }, [user, pantalla, setPantalla, productoPreseleccionado]);
 
+  useEffect(() => {
+    if (!user && ['pedido', 'perfil', 'roles'].includes(pantalla)) {
+      setPantalla('inicio');
+    }
+  }, [user, pantalla, setPantalla]);
+
   const esAdmin = grupos.some(g => ['admin', 'Admin'].includes(g));
   const pedidosPendientes = esAdmin ? historialGlobal.filter(p => !p.estatus || p.estatus === 'pendiente').length : 0;
 
