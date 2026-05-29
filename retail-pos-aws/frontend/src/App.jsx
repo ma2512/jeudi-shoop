@@ -2579,15 +2579,15 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
   const cargarPedidos = useCallback(async () => {
     if (!user) return;
     try {
-      const userLogin = user?.signInDetails?.loginId || user?.username;
+      const emailQuery = userEmail || user?.signInDetails?.loginId || user?.username || '';
       const esAdmin = grupos.some(g => ['admin', 'Admin'].includes(g));
       const esEmpleado = grupos.some(g => ['empleado', 'Empleado'].includes(g));
       const esStaff = esAdmin || esEmpleado;
-      const url = esStaff ? `${API_URL}/pedidos` : `${API_URL}/pedidos?email=${encodeURIComponent(userLogin)}`;
+      const url = esStaff ? `${API_URL}/pedidos` : `${API_URL}/pedidos?email=${encodeURIComponent(emailQuery.trim())}`;
       const res = await axios.get(url);
       setHistorial(res.data);
     } catch (err) { console.error('Error al cargar pedidos en Content:', err); }
-  }, [user, grupos]);
+  }, [user, grupos, userEmail]);
 
   useEffect(() => {
     if (user && grupos.length >= 0) {
@@ -2719,7 +2719,7 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
         {pantalla === 'checkout' && user && <VistaCheckout user={user} userEmail={userEmail} displayName={displayName} carrito={carrito} vaciarCarrito={vaciarCarrito} productoPreseleccionado={productoPreseleccionado} setProductoPreseleccionado={setProductoPreseleccionado} setPantalla={setPantalla} t={textos[idioma]} productos={productos} pagosMap={pagosMap} setPagosMap={setPagosMap} addVentaAuto={addVentaAuto} cargarPedidos={cargarPedidos} />}
         {pantalla === 'login' && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 20px' }}>
-            <Authenticator components={components} loginMechanisms={['username', 'email']} signUpAttributes={['email']} />
+            <Authenticator components={components} loginMechanisms={['email']} signUpAttributes={['email']} />
           </div>
         )}
       </main>
