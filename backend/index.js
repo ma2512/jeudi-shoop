@@ -110,6 +110,26 @@ async function inicializarBaseDeDatos() {
       )
     `);
 
+    // Crear tabla tienda_config si no existe
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tienda_config (
+        clave VARCHAR(255) PRIMARY KEY,
+        valor TEXT
+      )
+    `);
+
+    // Sembrar config por defecto si esta vacio
+    const configCheck = await pool.query('SELECT COUNT(*) FROM tienda_config');
+    if (parseInt(configCheck.rows[0].count) === 0) {
+      await pool.query(`
+        INSERT INTO tienda_config (clave, valor) VALUES
+        ('hero_titulo_es', 'Hecho a mano. Para ti.'),
+        ('hero_titulo_en', 'Handmade. For you.'),
+        ('sobre_nosotros_es', 'Jeudi Shop nace del amor por los accesorios hechos a mano. Cada bolso, sombrero y tote bag es creado con dedicacion y materiales de calidad para acompañarte por muchos años.'),
+        ('sobre_nosotros_en', 'Jeudi Shop was born from a love of handmade accessories. Each bag, hat, and tote is crafted with dedication and quality materials to accompany you for years to come.')
+      `);
+    }
+
     // 6. Sembrar categorias por defecto si esta vacio
     const catCheck = await pool.query('SELECT COUNT(*) FROM categorias');
     if (parseInt(catCheck.rows[0].count) === 0) {
@@ -310,6 +330,39 @@ app.get('/test-mp', async (req, res) => {
     res.json({ ok: true, init_point: result.init_point });
   } catch (err) {
     res.json({ ok: false, error: err.message, detail: err });
+  }
+});
+
+// ===============================
+// TIENDA CONFIG — GET & POST
+// ===============================
+app.get('/config', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM tienda_config');
+    const config = {};
+    result.rows.forEach(row => {
+      config[row.clave] = row.valor;
+    });
+    res.json(config);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/config', async (req, res) => {
+  const { config } = req.body;
+  try {
+    for (const [clave, valor] of Object.entries(config)) {
+      await pool.query(
+        `INSERT INTO tienda_config (clave, valor)
+         VALUES ($1, $2)
+         ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor`,
+        [clave, valor]
+      );
+    }
+    res.json({ message: 'Configuracion actualizada correctamente' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

@@ -298,15 +298,109 @@ function Footer({ idioma, setPantalla }) {
 // ===============================
 // VISTA INICIO
 // ===============================
-function VistaInicio({ idioma, setPantalla, productos, setProductoDetalle }) {
+function VistaInicio({ idioma, setPantalla, productos, setProductoDetalle, esAdmin, config, onUpdateConfig }) {
   const t = textos[idioma];
   const destacados = productos.slice(0, 3);
+
+  const editarHero = async () => {
+    const { value: nuevoTitulo } = await Swal.fire({
+      title: 'Editar Título Hero (Español)',
+      input: 'text',
+      inputValue: config.hero_titulo_es,
+      showCancelButton: true,
+      confirmButtonColor: '#f06292',
+      inputValidator: (value) => {
+        if (!value) {
+          return 'El título no puede estar vacío';
+        }
+      }
+    });
+
+    if (nuevoTitulo) {
+      const { value: nuevoTituloEn } = await Swal.fire({
+        title: 'Editar Título Hero (Inglés)',
+        input: 'text',
+        inputValue: config.hero_titulo_en,
+        showCancelButton: true,
+        confirmButtonColor: '#f06292',
+        inputValidator: (value) => {
+          if (!value) {
+            return 'El título no puede estar vacío';
+          }
+        }
+      });
+
+      if (nuevoTituloEn) {
+        onUpdateConfig({
+          hero_titulo_es: nuevoTitulo,
+          hero_titulo_en: nuevoTituloEn
+        });
+      }
+    }
+  };
+
+  const editarSobreNosotros = async () => {
+    const { value: nuevoTexto } = await Swal.fire({
+      title: 'Editar Historia (Español)',
+      input: 'textarea',
+      inputValue: config.sobre_nosotros_es,
+      showCancelButton: true,
+      confirmButtonColor: '#f06292',
+      inputValidator: (value) => {
+        if (!value) {
+          return 'La descripción no puede estar vacía';
+        }
+      }
+    });
+
+    if (nuevoTexto) {
+      const { value: nuevoTextoEn } = await Swal.fire({
+        title: 'Editar Historia (Inglés)',
+        input: 'textarea',
+        inputValue: config.sobre_nosotros_en,
+        showCancelButton: true,
+        confirmButtonColor: '#f06292',
+        inputValidator: (value) => {
+          if (!value) {
+            return 'La descripción no puede estar vacía';
+          }
+        }
+      });
+
+      if (nuevoTextoEn) {
+        onUpdateConfig({
+          sobre_nosotros_es: nuevoTexto,
+          sobre_nosotros_en: nuevoTextoEn
+        });
+      }
+    }
+  };
+
   return (
     <>
       <section className="hero-section">
         <div style={{ position: 'relative', zIndex: 2 }} className="fade-up">
           <p style={{ fontSize: '0.75rem', letterSpacing: '0.2em', color: '#f06292', marginBottom: '16px' }}>— HANDMADE WITH LOVE —</p>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(2.5rem, 6vw, 4.5rem)', color: '#1a1a1a', lineHeight: 1.2, marginBottom: '32px' }}>{t.hero}</h1>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(2.5rem, 6vw, 4.5rem)', color: '#1a1a1a', lineHeight: 1.2, marginBottom: '32px' }}>
+            {idioma === 'es' ? config.hero_titulo_es : config.hero_titulo_en}
+          </h1>
+          {esAdmin && (
+            <button onClick={editarHero} style={{
+              background: '#f06292',
+              color: '#fff',
+              border: 'none',
+              padding: '6px 12px',
+              fontSize: '0.75rem',
+              fontFamily: "'Jost', sans-serif",
+              cursor: 'pointer',
+              marginBottom: '20px',
+              borderRadius: '2px',
+              letterSpacing: '0.05em'
+            }}>
+              Editar Titulo Hero
+            </button>
+          )}
+          <br />
           <button onClick={() => setPantalla('catalogo')}
             style={{ background: '#1a1a1a', color: '#fff', border: 'none', padding: '14px 36px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.15em', transition: 'background 0.25s' }}
             onMouseOver={e => e.target.style.background='#f06292'} onMouseOut={e => e.target.style.background='#1a1a1a'}>
@@ -319,7 +413,26 @@ function VistaInicio({ idioma, setPantalla, productos, setProductoDetalle }) {
       <section className="sobre-nosotros">
         <p style={{ fontSize: '0.72rem', letterSpacing: '0.2em', color: '#f06292', marginBottom: '12px' }}>— NUESTRA HISTORIA —</p>
         <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(1.8rem, 4vw, 2.8rem)', color: '#1a1a1a', marginBottom: '20px' }}>{t.sobreNosotros}</h2>
-        <p style={{ maxWidth: '580px', margin: '0 auto', lineHeight: '1.85', color: '#444', fontSize: '0.95rem' }}>{t.sobreTexto}</p>
+        <p style={{ maxWidth: '580px', margin: '0 auto', lineHeight: '1.85', color: '#444', fontSize: '0.95rem' }}>
+          {idioma === 'es' ? config.sobre_nosotros_es : config.sobre_nosotros_en}
+        </p>
+        {esAdmin && (
+          <button onClick={editarSobreNosotros} style={{
+            background: '#1a1a1a',
+            color: '#fff',
+            border: 'none',
+            padding: '6px 12px',
+            fontSize: '0.75rem',
+            fontFamily: "'Jost', sans-serif",
+            cursor: 'pointer',
+            marginTop: '20px',
+            borderRadius: '2px',
+            letterSpacing: '0.05em'
+          }}
+          onMouseOver={e => e.target.style.background='#f06292'} onMouseOut={e => e.target.style.background='#1a1a1a'}>
+            Editar Historia
+          </button>
+        )}
       </section>
       <section style={{ padding: '70px 8%', textAlign: 'center' }}>
         <p style={{ fontSize: '0.72rem', letterSpacing: '0.2em', color: '#f06292', marginBottom: '10px' }}>— DESTACADOS —</p>
@@ -2366,6 +2479,45 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [displayName, setDisplayName] = useState('');
 
+  const [config, setConfig] = useState({
+    hero_titulo_es: 'Hecho a mano. Para ti.',
+    hero_titulo_en: 'Handmade. For you.',
+    sobre_nosotros_es: 'Jeudi Shop nace del amor por los accesorios hechos a mano. Cada bolso, sombrero y tote bag es creado con dedicacion y materiales de calidad para acompañarte por muchos años.',
+    sobre_nosotros_en: 'Jeudi Shop was born from a love of handmade accessories. Each bag, hat, and tote is crafted with dedication and quality materials to accompany you for years to come.'
+  });
+
+  const cargarConfig = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_URL}/config`);
+      if (res.data && Object.keys(res.data).length > 0) {
+        setConfig(prev => ({ ...prev, ...res.data }));
+      }
+    } catch (err) {
+      console.error('Error al cargar config:', err);
+    }
+  }, []);
+
+  const actualizarConfig = async (nuevosValores) => {
+    try {
+      await axios.post(`${API_URL}/config`, { config: nuevosValores });
+      setConfig(prev => ({ ...prev, ...nuevosValores }));
+      Swal.fire({
+        icon: 'success',
+        title: '¡Guardado!',
+        text: 'La configuración de la tienda ha sido actualizada.',
+        confirmButtonColor: '#f06292'
+      });
+    } catch (err) {
+      console.error('Error al actualizar config:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo guardar la configuración.',
+        confirmButtonColor: '#f06292'
+      });
+    }
+  };
+
   const cargarCategorias = useCallback(async () => {
     try {
       const res = await axios.get(`${API_URL}/categorias`);
@@ -2399,7 +2551,8 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
     cargarCategorias();
     cargarProductos();
     cargarVentas();
-  }, [cargarCategorias, cargarProductos, cargarVentas]);
+    cargarConfig();
+  }, [cargarCategorias, cargarProductos, cargarVentas, cargarConfig]);
 
   // Handler auto-creacion de ventas al pasar a entregado
   const addVentaAuto = async (pedido, precio) => {
@@ -2556,7 +2709,7 @@ function Content({ pantalla, setPantalla, idioma, setIdioma }) {
       <style>{globalStyles}</style>
       <Navbar user={user} signOut={signOut} pantalla={pantalla} setPantalla={setPantalla} idioma={idioma} setIdioma={setIdioma} grupos={grupos} pedidosPendientes={pedidosPendientes} carrito={carrito} />
       <main>
-        {pantalla === 'inicio' && <VistaInicio idioma={idioma} setPantalla={setPantalla} productos={productos} setProductoDetalle={setProductoDetalle} />}
+        {pantalla === 'inicio' && <VistaInicio idioma={idioma} setPantalla={setPantalla} productos={productos} setProductoDetalle={setProductoDetalle} esAdmin={grupos.some(g => ['admin', 'Admin'].includes(g))} config={config} onUpdateConfig={actualizarConfig} />}
         {pantalla === 'catalogo' && <VistaCatalogo user={user} setPantalla={setPantalla} idioma={idioma} productos={productos} setProductos={setProductos} grupos={grupos} setProductoDetalle={setProductoDetalle} categorias={categorias} setProductoPreseleccionado={setProductoPreseleccionado} cargarCategorias={cargarCategorias} cargarProductos={cargarProductos} ventas={ventas} agregarAlCarrito={agregarAlCarrito} />}
         {pantalla === 'detalle' && <VistaDetalle producto={productoDetalle} setPantalla={setPantalla} user={user} t={textos[idioma]} setProductoPreseleccionado={setProductoPreseleccionado} agregarAlCarrito={agregarAlCarrito} />}
         {pantalla === 'pedido' && user && <VistaPedidos idioma={idioma} grupos={grupos} productos={productos} historial={historial} cargarPedidos={cargarPedidos} pagosMap={pagosMap} setPagosMap={setPagosMap} addVentaAuto={addVentaAuto} productoPreseleccionado={productoPreseleccionado} setProductoPreseleccionado={setProductoPreseleccionado} />}
