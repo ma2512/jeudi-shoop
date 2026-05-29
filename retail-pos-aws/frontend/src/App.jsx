@@ -26,7 +26,7 @@ Amplify.configure({
   }
 });
 
-const API_URL = 'http://54.213.86.164:3000';
+const API_URL = 'http://54.190.126.4:3000';
 
 const resolverImagen = (imgString) => {
   if (imgString === 'producto1') return producto1;
