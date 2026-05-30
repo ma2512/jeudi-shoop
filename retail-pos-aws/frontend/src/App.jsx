@@ -836,6 +836,10 @@ function TimelineCard({ pedido, t, pagosMap, setPagosMap, productos }) {
               <span>Estatus del Pago: </span>
               {renderEstatusPagoBadge(estatusPago)}
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <span>Método de Pago: </span>
+              <span style={{ color: '#f06292', fontWeight: 600 }}>Mercado Pago</span>
+            </div>
 
             {estatusPago !== 'pagado' && (
               <div style={{ marginTop: '10px' }}>
@@ -843,7 +847,7 @@ function TimelineCard({ pedido, t, pagosMap, setPagosMap, productos }) {
                   style={{ padding: '6px 12px', fontSize: '0.72rem', background: '#009ee3', color: '#fff', border: 'none', cursor: generandoPago ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}
                   onMouseOver={e => { if(!generandoPago) e.target.style.background='#007bb5'; }} onMouseOut={e => { if(!generandoPago) e.target.style.background='#009ee3'; }}
                   onClick={pagarConMercadoPago}>
-                  {generandoPago ? 'Generando...' : 'Pagar con Mercado Pago'}
+                  {generandoPago ? 'Generando...' : 'Pagar'}
                 </button>
               </div>
             )}
@@ -2993,7 +2997,7 @@ function VistaCheckout({ user, userEmail, displayName, carrito, vaciarCarrito, p
                 <button onClick={procesarPedido} disabled={cargando}
                   style={{ background: '#009ee3', color: '#fff', border: 'none', padding: '14px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.08em', fontWeight: 700, transition: 'background 0.2s' }}
                   onMouseOver={e => e.target.style.background='#007bb5'} onMouseOut={e => e.target.style.background='#009ee3'}>
-                  {cargando ? 'Procesando...' : 'Pagar con Mercado Pago'}
+                  {cargando ? 'Procesando...' : 'Pagar'}
                 </button>
               </div>
             </div>
