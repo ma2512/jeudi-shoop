@@ -443,7 +443,7 @@ function VistaInicio({ idioma, setPantalla, productos, setProductoDetalle, esAdm
               <img src={resolverImagen(p.imagen)} style={{ width: '100%', height: '260px', objectFit: 'cover' }} alt={p.nombre}
                 onError={e => e.target.src='https://via.placeholder.com/260x260/fce4ec/f06292?text=J'} />
               <h3 style={{ fontFamily: "'Playfair Display', serif", marginTop: '14px', fontSize: '1rem' }}>{p.nombre}</h3>
-              <p style={{ color: '#f06292', fontWeight: 500, marginTop: '6px' }}>${p.precio.toLocaleString()}</p>
+              <p style={{ color: '#f06292', fontWeight: 500, marginTop: '6px' }}>${p.precio.toLocaleString('es-MX')}</p>
             </div>
           ))}
         </div>
@@ -478,7 +478,7 @@ function VistaDetalle({ producto, setPantalla, user, t, setProductoPreselecciona
             {producto.nombre}
           </h1>
           <p style={{ fontSize: '1.6rem', color: '#f06292', fontWeight: 600, marginBottom: '28px', letterSpacing: '0.02em' }}>
-            ${producto.precio.toLocaleString()}
+            ${producto.precio.toLocaleString('es-MX')}
           </p>
           <div style={{ width: '40px', height: '2px', background: '#fce4ec', marginBottom: '24px' }} />
           <p style={{ color: '#555', lineHeight: '1.85', fontSize: '0.95rem', marginBottom: '36px' }}>{producto.desc}</p>
@@ -1159,7 +1159,7 @@ function CRUDProductos({ productos, setProductos, categorias, cargarProductos })
                     onError={e => e.target.src='https://via.placeholder.com/120/fce4ec/f06292?text=J'} />
                   <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: '0.95rem' }}>{p.nombre}</h4>
                   <p style={{ fontSize: '0.78rem', color: '#999', margin: '4px 0' }}>{cat ? cat.nombre : 'Sin Categoria'}</p>
-                  <p style={{ color: '#f06292', fontWeight: 600, fontSize: '0.9rem' }}>${p.precio.toLocaleString()}</p>
+                  <p style={{ color: '#f06292', fontWeight: 600, fontSize: '0.9rem' }}>${p.precio.toLocaleString('es-MX')}</p>
                   <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', marginTop: '10px' }}>
                     <button className="crud-btn crud-btn-edit" style={{ padding: '4px 8px', fontSize: '0.7rem' }} onClick={() => { setProductoEditando(p); setModalAbierto(true); }}>Editar</button>
                     <button className="crud-btn crud-btn-delete" style={{ padding: '4px 8px', fontSize: '0.7rem' }} onClick={() => handleEliminar(p.id)}>X</button>
@@ -1200,7 +1200,7 @@ function CRUDProductos({ productos, setProductos, categorias, cargarProductos })
                           <td style={tdStyle}><img src={resolverImagen(p.imagen)} alt={p.nombre} style={{ width: '44px', height: '44px', objectFit: 'cover', border: '1px solid #fce4ec' }} onError={e => e.target.src='https://via.placeholder.com/44/fce4ec/f06292?text=J'} /></td>
                           <td style={{ ...tdStyle, fontWeight: 500 }}>{p.nombre}</td>
                           <td style={tdStyle}>{cat ? cat.nombre : '—'}</td>
-                          <td style={{ ...tdStyle, color: '#f06292', fontWeight: 600 }}>${p.precio.toLocaleString()}</td>
+                          <td style={{ ...tdStyle, color: '#f06292', fontWeight: 600 }}>${p.precio.toLocaleString('es-MX')}</td>
                           <td style={{ ...tdStyle, color: '#666', maxWidth: '200px' }}><span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.desc}</span></td>
                           <td style={{ ...tdStyle, color: '#999', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>{p.fechaCreacion ? new Date(p.fechaCreacion).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
                           <td style={{ ...tdStyle, textAlign: 'center' }}>
@@ -1450,7 +1450,7 @@ function CRUDVentas({ ventas }) {
     const finalY = doc.lastAutoTable.finalY + 15;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text(`Total Acumulado: $${totalVentasSum.toLocaleString()}`, 14, finalY);
+    doc.text(`Total Acumulado: $${totalVentasSum.toLocaleString('es-MX')}`, 14, finalY);
 
     doc.save("reporte_ventas.pdf");
   };
@@ -1530,7 +1530,7 @@ function CRUDVentas({ ventas }) {
                   <td style={tdStyle}><span style={{ color: '#f06292' }}>#{v.id}</span></td>
                   <td style={tdStyle}>{v.cliente}</td>
                   <td style={tdStyle}>{v.producto}</td>
-                  <td style={{ ...tdStyle, color: '#f06292', fontWeight: 600 }}>${v.monto.toLocaleString()}</td>
+                  <td style={{ ...tdStyle, color: '#f06292', fontWeight: 600 }}>${v.monto.toLocaleString('es-MX')}</td>
                   <td style={tdStyle}>{v.metodoPago}</td>
                   <td style={tdStyle}>{new Date(v.fecha).toLocaleDateString()}</td>
                   <td style={tdStyle}>
@@ -1798,7 +1798,7 @@ function VistaCatalogo({ user, setPantalla, idioma, productos, setProductos, gru
                       <h3 style={{ fontFamily: "'Playfair Display', serif", marginTop: '12px', fontSize: '1.2rem', cursor: 'pointer' }}
                         onClick={() => { setProductoDetalle(p); setPantalla('detalle'); }}>{p.nombre}</h3>
                       <p style={{ color: '#888', fontSize: '0.85rem', marginTop: '8px', lineHeight: '1.6', flexGrow: 1 }}>{p.desc}</p>
-                      <p style={{ color: '#f06292', fontWeight: 600, fontSize: '1.1rem', marginTop: '12px' }}>${p.precio.toLocaleString()}</p>
+                      <p style={{ color: '#f06292', fontWeight: 600, fontSize: '1.1rem', marginTop: '12px' }}>${p.precio.toLocaleString('es-MX')}</p>
                       <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
                         <button style={{ flex: 1, background: 'none', border: '1px solid #1a1a1a', padding: '10px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.72rem', letterSpacing: '0.05em', transition: 'all 0.2s' }}
                           onMouseOver={e => { e.target.style.background='#fce4ec'; }} onMouseOut={e => { e.target.style.background='none'; }}
@@ -1863,7 +1863,12 @@ function VistaPedidos({ idioma, grupos, productos, historial, cargarPedidos, pag
       if (estado === 'entregado') {
         const ped = historial.find(p => p.id === id);
         if (ped) {
-          const precio = productos.find(p => p.nombre && ped.tipo_articulo && p.nombre.toLowerCase().trim() === ped.tipo_articulo.toLowerCase().trim())?.precio || 100;
+          const match = productos.find(p => p.nombre && ped.tipo_articulo && (
+            p.nombre.toLowerCase().trim() === ped.tipo_articulo.toLowerCase().trim() ||
+            ped.tipo_articulo.toLowerCase().includes(p.nombre.toLowerCase().trim()) ||
+            p.nombre.toLowerCase().trim().includes(ped.tipo_articulo.toLowerCase().trim())
+          ));
+          const precio = match ? parseFloat(match.precio) : 100;
           addVentaAuto(ped, precio);
         }
       }
@@ -2035,7 +2040,7 @@ function VistaPedidos({ idioma, grupos, productos, historial, cargarPedidos, pag
             { label: 'TOTAL PEDIDOS', valor: totalPedidos },
             { label: 'PENDIENTES', valor: pedidosPendientes },
             { label: 'ENTREGADOS', valor: pedidosEntregados },
-            { label: 'VENTAS EST.', valor: `$${totalVentas.toLocaleString()}` },
+            { label: 'VENTAS EST.', valor: `$${totalVentas.toLocaleString('es-MX')}` },
           ].map((s, i) => (
             <div key={i} style={{ background: '#fff', border: '1px solid #fce4ec', padding: '20px 24px', borderRadius: '4px' }}>
               <h4 style={{ fontSize: '0.75rem', color: '#f06292', letterSpacing: '0.05em', marginBottom: '10px' }}>{s.label}</h4>
@@ -2238,6 +2243,9 @@ function VistaRoles({ idioma, grupos }) {
   const [datos, setDatos] = useState({ username: '', rol: 'Cliente' });
   const [nuevoUsuario, setNuevoUsuario] = useState({ username: '', password: '', rol: 'Cliente' });
 
+  const [mostrarModalAsignar, setMostrarModalAsignar] = useState(false);
+  const [mostrarModalCrear, setMostrarModalCrear] = useState(false);
+
   // Estado de lista de usuarios Cognito
   const [usuariosCognito, setUsuariosCognito] = useState([]);
   const [cargandoUsuarios, setCargandoUsuarios] = useState(false);
@@ -2273,6 +2281,7 @@ function VistaRoles({ idioma, grupos }) {
       await axios.post(`${API_URL}/admin/asignar-rol`, datos);
       Swal.fire({ icon: 'success', title: t.exito, text: 'Rol asignado con éxito', confirmButtonColor: '#f06292' });
       setDatos({ username: '', rol: 'Cliente' });
+      setMostrarModalAsignar(false);
       setTimeout(() => cargarUsuarios(), 800);
     } catch (err) { Swal.fire({ icon: 'error', title: t.error, text: err.response?.data?.error || err.message || 'Error al asignar rol', confirmButtonColor: '#f06292' }); }
   };
@@ -2283,6 +2292,7 @@ function VistaRoles({ idioma, grupos }) {
       await axios.post(`${API_URL}/admin/crear-usuario`, nuevoUsuario);
       Swal.fire({ icon: 'success', title: t.exito, text: `Usuario ${nuevoUsuario.username} creado`, confirmButtonColor: '#f06292' });
       setNuevoUsuario({ username: '', password: '', rol: 'Cliente' });
+      setMostrarModalCrear(false);
       setTimeout(() => cargarUsuarios(), 800);
     } catch (err) { Swal.fire({ icon: 'error', title: t.error, text: err.response?.data?.error || err.message, confirmButtonColor: '#f06292' }); }
   };
@@ -2311,33 +2321,70 @@ function VistaRoles({ idioma, grupos }) {
       <p style={{ fontSize: '0.72rem', letterSpacing: '0.18em', color: '#f06292', marginBottom: '10px' }}>— ADMINISTRACION —</p>
       <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '2rem', marginBottom: '36px', color: '#1a1a1a' }}>{t.gestionRoles}</h1>
       
-      {/* Panel Superior: Formularios */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '40px', alignItems: 'start', marginBottom: '50px' }}>
-        <div style={{ background: '#fff', border: '1px solid #fce4ec', padding: '36px' }}>
-          <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.3rem', marginBottom: '20px' }}>Asignar Rol a Usuario Existente</h3>
-          <form onSubmit={asignarRol}>
-            <input className="form-input" placeholder={t.correo} value={datos.username} onChange={e => setDatos({ ...datos, username: e.target.value })} required />
-            <select className="form-input" value={datos.rol} onChange={e => setDatos({ ...datos, rol: e.target.value })}>
-              <option value="Cliente">Cliente</option><option value="Empleado">Empleado</option><option value="Admin">Admin</option>
-            </select>
-            <button type="submit" style={{ background: '#1a1a1a', color: '#fff', border: 'none', padding: '13px 32px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.12em', width: '100%' }}
-              onMouseOver={e => e.target.style.background='#f06292'} onMouseOut={e => e.target.style.background='#1a1a1a'}>ASIGNAR ROL</button>
-          </form>
-        </div>
-
-        <div style={{ background: '#fff', border: '1px solid #fce4ec', padding: '36px' }}>
-          <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.3rem', marginBottom: '20px' }}>Crear Nuevo Usuario</h3>
-          <form onSubmit={crearUsuario}>
-            <input className="form-input" type="email" placeholder="Correo electronico" value={nuevoUsuario.username} onChange={e => setNuevoUsuario({ ...nuevoUsuario, username: e.target.value })} required />
-            <input className="form-input" type="password" placeholder="Contrasena inicial" value={nuevoUsuario.password} onChange={e => setNuevoUsuario({ ...nuevoUsuario, password: e.target.value })} required />
-            <select className="form-input" value={nuevoUsuario.rol} onChange={e => setNuevoUsuario({ ...nuevoUsuario, rol: e.target.value })}>
-              <option value="Cliente">Cliente</option><option value="Empleado">Empleado</option><option value="Admin">Admin</option>
-            </select>
-            <button type="submit" style={{ background: '#1a1a1a', color: '#fff', border: 'none', padding: '13px 32px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.12em', width: '100%' }}
-              onMouseOver={e => e.target.style.background='#f06292'} onMouseOut={e => e.target.style.background='#1a1a1a'}>CREAR USUARIO</button>
-          </form>
-        </div>
+      {/* Botones de acción para abrir los modales de Roles */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '40px', flexWrap: 'wrap' }}>
+        <button onClick={() => setMostrarModalAsignar(true)} 
+          style={{ background: '#1a1a1a', color: '#fff', border: 'none', padding: '12px 24px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', fontWeight: 600, letterSpacing: '0.08em', borderRadius: '4px', transition: 'all 0.2s' }} 
+          onMouseOver={e => e.target.style.background='#f06292'} onMouseOut={e => e.target.style.background='#1a1a1a'}>
+          Asignar Rol a Usuario
+        </button>
+        <button onClick={() => setMostrarModalCrear(true)} 
+          style={{ background: 'none', border: '1px solid #1a1a1a', color: '#1a1a1a', padding: '12px 24px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', fontWeight: 600, letterSpacing: '0.08em', borderRadius: '4px', transition: 'all 0.2s' }} 
+          onMouseOver={e => e.target.style.background='#fce4ec'} onMouseOut={e => e.target.style.background='none'}>
+          + Crear Nuevo Usuario
+        </button>
       </div>
+
+      {/* Modal: Asignar Rol */}
+      {mostrarModalAsignar && (
+        <div className="modal-overlay" onClick={() => setMostrarModalAsignar(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', marginBottom: '20px', color: '#1a1a1a' }}>Asignar Rol a Usuario Existente</h3>
+            <form onSubmit={asignarRol}>
+              <input className="form-input" placeholder={t.correo} value={datos.username} onChange={e => setDatos({ ...datos, username: e.target.value })} required />
+              <select className="form-input" value={datos.rol} onChange={e => setDatos({ ...datos, rol: e.target.value })}>
+                <option value="Cliente">Cliente</option>
+                <option value="Empleado">Empleado</option>
+                <option value="Admin">Admin</option>
+              </select>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                <button type="submit" style={{ flex: 1, background: '#1a1a1a', color: '#fff', border: 'none', padding: '13px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.10em', fontWeight: 600 }} onMouseOver={e => e.target.style.background='#f06292'} onMouseOut={e => e.target.style.background='#1a1a1a'}>
+                  ASIGNAR ROL
+                </button>
+                <button type="button" onClick={() => setMostrarModalAsignar(false)} style={{ padding: '13px 20px', background: '#fff', border: '1px solid #ddd', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem' }}>
+                  CANCELAR
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Crear Usuario */}
+      {mostrarModalCrear && (
+        <div className="modal-overlay" onClick={() => setMostrarModalCrear(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', marginBottom: '20px', color: '#1a1a1a' }}>Crear Nuevo Usuario</h3>
+            <form onSubmit={crearUsuario}>
+              <input className="form-input" type="email" placeholder="Correo electronico" value={nuevoUsuario.username} onChange={e => setNuevoUsuario({ ...nuevoUsuario, username: e.target.value })} required />
+              <input className="form-input" type="password" placeholder="Contrasena inicial" value={nuevoUsuario.password} onChange={e => setNuevoUsuario({ ...nuevoUsuario, password: e.target.value })} required />
+              <select className="form-input" value={nuevoUsuario.rol} onChange={e => setNuevoUsuario({ ...nuevoUsuario, rol: e.target.value })}>
+                <option value="Cliente">Cliente</option>
+                <option value="Empleado">Empleado</option>
+                <option value="Admin">Admin</option>
+              </select>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                <button type="submit" style={{ flex: 1, background: '#1a1a1a', color: '#fff', border: 'none', padding: '13px', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem', letterSpacing: '0.10em', fontWeight: 600 }} onMouseOver={e => e.target.style.background='#f06292'} onMouseOut={e => e.target.style.background='#1a1a1a'}>
+                  CREAR USUARIO
+                </button>
+                <button type="button" onClick={() => setMostrarModalCrear(false)} style={{ padding: '13px 20px', background: '#fff', border: '1px solid #ddd', cursor: 'pointer', fontFamily: "'Jost', sans-serif", fontSize: '0.85rem' }}>
+                  CANCELAR
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Tabla de Usuarios en Cognito */}
       <div style={{ background: '#fff', border: '1px solid #fce4ec', padding: '36px', borderRadius: '4px' }}>
@@ -2783,7 +2830,7 @@ function VistaCarrito({ carrito, actualizarCantidad, eliminarDelCarrito, setPant
                 <div style={{ flex: 1 }}>
                   <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.1rem', color: '#1a1a1a', margin: 0 }}>{item.nombre}</h3>
                   <p style={{ color: '#f06292', fontWeight: 600, fontSize: '0.95rem', marginTop: '6px', margin: 0 }}>
-                    ${item.precio.toLocaleString()} c/u
+                    ${item.precio.toLocaleString('es-MX')} c/u
                   </p>
                 </div>
 
@@ -2797,7 +2844,7 @@ function VistaCarrito({ carrito, actualizarCantidad, eliminarDelCarrito, setPant
 
                 <div style={{ minWidth: '100px', textAlign: 'right' }}>
                   <p style={{ fontWeight: 700, color: '#1a1a1a', fontSize: '1.05rem', margin: 0 }}>
-                    ${(item.precio * item.cantidad).toLocaleString()}
+                    ${(item.precio * item.cantidad).toLocaleString('es-MX')}
                   </p>
                 </div>
 
@@ -2816,12 +2863,12 @@ function VistaCarrito({ carrito, actualizarCantidad, eliminarDelCarrito, setPant
             
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px', fontSize: '0.95rem', color: '#666' }}>
               <span>Productos ({carrito.reduce((sum, item) => sum + item.cantidad, 0)})</span>
-              <span>${total.toLocaleString()}</span>
+              <span>${total.toLocaleString('es-MX')}</span>
             </div>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', fontSize: '1.1rem', fontWeight: 'bold', color: '#1a1a1a', borderTop: '1px dashed #fce4ec', paddingTop: '16px' }}>
               <span>Total</span>
-              <span style={{ color: '#f06292' }}>${total.toLocaleString()}</span>
+              <span style={{ color: '#f06292' }}>${total.toLocaleString('es-MX')}</span>
             </div>
 
             <button onClick={() => setPantalla('checkout')} className="btn-pedir" style={{ width: '100%', padding: '14px', fontSize: '0.85rem' }}>
@@ -2983,7 +3030,7 @@ function VistaCheckout({ user, userEmail, displayName, carrito, vaciarCarrito, p
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 'bold', color: '#1a1a1a', borderTop: '1px solid #fce4ec', paddingTop: '14px' }}>
                 <span>Total a Pagar</span>
-                <span style={{ color: '#f06292' }}>${total.toLocaleString()}</span>
+                <span style={{ color: '#f06292' }}>${total.toLocaleString('es-MX')}</span>
               </div>
             </div>
 
