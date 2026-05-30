@@ -1941,7 +1941,12 @@ function VistaPedidos({ idioma, grupos, productos, historial, cargarPedidos, pag
   const pedidosPendientes = historial.filter(p => !p.estatus || p.estatus === 'pendiente').length;
   const pedidosEntregados = historial.filter(p => p.estatus === 'entregado').length;
   const totalVentas = historial.reduce((sum, order) => {
-    const match = productos.find(p => p.nombre && order.tipo_articulo && p.nombre.toLowerCase().trim() === order.tipo_articulo.toLowerCase().trim());
+    if (order.estatus_pago !== 'pagado') return sum;
+    const match = productos.find(p => p.nombre && order.tipo_articulo && (
+      p.nombre.toLowerCase().trim() === order.tipo_articulo.toLowerCase().trim() ||
+      order.tipo_articulo.toLowerCase().includes(p.nombre.toLowerCase().trim()) ||
+      p.nombre.toLowerCase().trim().includes(order.tipo_articulo.toLowerCase().trim())
+    ));
     return sum + (match ? parseFloat(match.precio) : 0);
   }, 0);
 
